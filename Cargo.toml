@@ -1,6 +1,6 @@
 [package]
-name = "plugin_support"
-version = "0.1.0"
+name = "samase_plugin"
+version = "0.5.0"
 authors = ["Markus Heikkinen <ittevien@gmail.com>"]
 
 [dependencies]
