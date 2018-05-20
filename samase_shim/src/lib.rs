@@ -4,7 +4,7 @@ extern crate thread_local;
 #[macro_use] extern crate whack;
 extern crate winapi;
 
-extern crate plugin_support;
+extern crate samase_plugin;
 
 use std::cell::{Cell, RefCell, RefMut};
 use std::ffi::{CStr, CString};
@@ -18,13 +18,13 @@ use libc::c_void;
 use thread_local::CachedThreadLocal;
 use winapi::um::heapapi::{GetProcessHeap, HeapAlloc, HeapFree};
 
-use plugin_support::commands::{CommandLength, IngameCommandHook};
-use plugin_support::save::{SaveHook, LoadHook};
+use samase_plugin::commands::{CommandLength, IngameCommandHook};
+use samase_plugin::save::{SaveHook, LoadHook};
 
 mod bw;
 mod windows;
 
-pub use plugin_support::PluginApi;
+pub use samase_plugin::PluginApi;
 
 lazy_static! {
     static ref PATCHER: whack::Patcher = whack::Patcher::new();
@@ -136,7 +136,7 @@ impl io::Seek for BwFile {
     }
 }
 
-impl plugin_support::save::File for BwFile {
+impl samase_plugin::save::File for BwFile {
     fn warn(&mut self, msg: &str) {
         if let Ok(msg) = CString::new(msg) {
             unsafe {
@@ -272,12 +272,12 @@ impl Drop for Context {
             if ctx.save_extensions_used {
                 unsafe fn save_hook(file: *mut c_void) {
                     // TODO ?
-                    let _ = plugin_support::save::call_save_hooks(BwFile(file));
+                    let _ = samase_plugin::save::call_save_hooks(BwFile(file));
                 }
                 unsafe fn load_hook() {
                     if *bw::loaded_save != null_mut() {
                         let result =
-                            plugin_support::save::call_load_hooks(BwFile(*bw::loaded_save));
+                            samase_plugin::save::call_load_hooks(BwFile(*bw::loaded_save));
                         if let Err(e) = result {
                             // TODO not crashing
                             panic!("{}", e);
@@ -289,7 +289,7 @@ impl Drop for Context {
                 }
                 exe.call_hook(bw::SaveReady, save_hook);
                 exe.hook_closure(bw::InitGame, |orig: &Fn()| {
-                    plugin_support::save::call_init_hooks();
+                    samase_plugin::save::call_init_hooks();
                     orig();
                 });
                 exe.call_hook(bw::LoadReady, load_hook);
@@ -664,7 +664,7 @@ unsafe extern fn extend_save(
     init: unsafe extern fn(),
 ) -> u32 {
     let tag = CStr::from_ptr(tag as *const i8).to_string_lossy();
-    plugin_support::save::add_hook(tag.into(), save, load, init);
+    samase_plugin::save::add_hook(tag.into(), save, load, init);
     context().save_extensions_used = true;
     1
 }
@@ -674,7 +674,7 @@ unsafe extern fn hook_ingame_command(
     hook: IngameCommandHook,
     len: Option<CommandLength>,
 ) -> u32 {
-    use plugin_support::commands;
+    use samase_plugin::commands;
 
     static INGAME_COMMAND_HOOK: Once = ONCE_INIT;
     if cmd >= 0x100 {

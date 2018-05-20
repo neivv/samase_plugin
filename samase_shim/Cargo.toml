@@ -9,7 +9,7 @@ libc = "0.2"
 thread_local = "0.3.5"
 winapi = { version = "0.3", features = ["heapapi", "libloaderapi", "winuser"] }
 
-[dependencies.plugin_support]
+[dependencies.samase_plugin]
 path = ".."
 
 [dependencies.whack]
