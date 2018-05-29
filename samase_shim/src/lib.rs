@@ -1,3 +1,4 @@
+extern crate byteorder;
 #[macro_use] extern crate lazy_static;
 extern crate libc;
 extern crate thread_local;
@@ -8,15 +9,17 @@ extern crate samase_plugin;
 
 use std::cell::{Cell, RefCell, RefMut};
 use std::ffi::{CStr, CString};
-use std::io;
+use std::io::{self, Write};
 use std::mem;
 use std::ptr::{null, null_mut};
 use std::slice;
 use std::sync::{Mutex, Once, ONCE_INIT};
 
+use byteorder::{WriteBytesExt, LE};
 use libc::c_void;
 use thread_local::CachedThreadLocal;
-use winapi::um::heapapi::{GetProcessHeap, HeapAlloc, HeapFree};
+use winapi::um::heapapi::{GetProcessHeap, HeapAlloc, HeapCreate, HeapFree};
+use winapi::um::winnt::{HANDLE, HEAP_CREATE_ENABLE_EXECUTE};
 
 use samase_plugin::commands::{CommandLength, IngameCommandHook};
 use samase_plugin::save::{SaveHook, LoadHook};
@@ -27,11 +30,18 @@ mod windows;
 pub use samase_plugin::PluginApi;
 
 lazy_static! {
+    static ref EXEC_HEAP: usize = unsafe {
+        HeapCreate(HEAP_CREATE_ENABLE_EXECUTE, 0, 0) as usize
+    };
     static ref PATCHER: whack::Patcher = whack::Patcher::new();
     static ref CONTEXT:
         CachedThreadLocal<RefCell<Option<InternalContext>>> = CachedThreadLocal::new();
     static ref FIRST_FILE_ACCESS_HOOKS: Mutex<Vec<unsafe extern fn()>> = Mutex::new(Vec::new());
     static ref LAST_FILE_POINTER: CachedThreadLocal<Cell<u64>> = CachedThreadLocal::new();
+}
+
+unsafe fn exec_alloc(size: usize) -> *mut u8 {
+    HeapAlloc(*EXEC_HEAP as HANDLE, 0, size) as *mut u8
 }
 
 pub struct Context {
@@ -54,6 +64,7 @@ struct InternalContext {
     send_command: Vec<unsafe extern fn(*mut c_void, u32, unsafe extern fn(*mut c_void, u32))>,
     step_secondary_order: Vec<unsafe extern fn(*mut c_void, unsafe extern fn(*mut c_void))>,
     game_screen_rclick: Vec<unsafe extern fn(*mut c_void, unsafe extern fn(*mut c_void))>,
+    aiscript_hooks: Vec<(u8, unsafe extern fn(*mut c_void))>,
     save_extensions_used: bool,
 }
 
@@ -269,6 +280,7 @@ impl Drop for Context {
                     hook(&mut converted as *mut bw::scr::Event as *mut c_void, call_orig);
                 });
             }
+            apply_aiscript_hooks(&mut exe, &ctx.aiscript_hooks);
             if ctx.save_extensions_used {
                 unsafe fn save_hook(file: *mut c_void) {
                     // TODO ?
@@ -457,9 +469,13 @@ unsafe extern fn hook_step_objects(hook: unsafe extern fn(), after: u32) -> u32 
     1
 }
 
-unsafe extern fn hook_aiscript_opcode(_opcode: u32, _hook: unsafe extern fn(*mut c_void)) -> u32 {
-    // TODO
-    0
+unsafe extern fn hook_aiscript_opcode(opcode: u32, hook: unsafe extern fn(*mut c_void)) -> u32 {
+    if opcode < 0x100 {
+        context().aiscript_hooks.push((opcode as u8, hook));
+        1
+    } else {
+        0
+    }
 }
 
 unsafe extern fn ai_regions() -> Option<unsafe extern fn() -> *mut c_void> {
@@ -739,4 +755,76 @@ unsafe extern fn dat_requirements() -> Option<unsafe extern fn(u32, u32) -> *con
         }
     }
     Some(inner)
+}
+
+unsafe fn apply_aiscript_hooks(
+    exe: &mut whack::ModulePatcher,
+    hooks: &[(u8, unsafe extern fn(*mut c_void))],
+) {
+    if hooks.is_empty() {
+        return;
+    }
+    // Going to set last as !0 so other plugins using this same shim can use it
+    // to count patched switch table length
+    let unpatched_switch_table =
+        *bw::aiscript_switch_table_ptr == bw::aiscript_default_switch_table.as_mut_ptr();
+    let old_opcode_count = if unpatched_switch_table {
+        0x71
+    } else {
+        let switch_table = *bw::aiscript_switch_table_ptr;
+        (0u32..).find(|&x| *switch_table.offset(x as isize) == !0).unwrap()
+    };
+    let opcode_count =
+        hooks.iter().map(|x| x.0 as u32 + 1).max().unwrap_or(0).max(old_opcode_count);
+    let mut switch_table = vec![0; opcode_count as usize + 2];
+    switch_table[opcode_count as usize + 1] = !0;
+    for i in 0..old_opcode_count {
+        let old_switch_table = *bw::aiscript_switch_table_ptr;
+        switch_table[i as usize] = *old_switch_table.offset(i as isize);
+    }
+    let mut asm_offsets = Vec::with_capacity(hooks.len());
+    let mut asm = Vec::new();
+    for &(opcode, fun) in hooks {
+        asm_offsets.push((opcode, asm.len()));
+        asm.write_all(&[
+            0x60, // pushad
+            0x56, // push esi (aiscript)
+            0xb8, // mov eax, ...
+        ]).unwrap();
+        asm.write_u32::<LE>(mem::transmute(fun)).unwrap();
+        asm.write_all(&[
+            0xff, 0xd0, // call eax
+            0x59, // pop ecx
+            0x8b, 0x46, 0x0c, // mov eax, [esi + 0xc] (Script wait)
+            0x31, 0xc9, // xor ecx, ecx
+            0x49, // dec ecx
+            0x39, 0xc8, // cmp eax, ecx
+            0x74, 0x0d, // je wait not set
+            0x61, // popad
+            0xc7, 0x44, 0xe4, 0xfc, // Mov [esp - 4], dword ...
+        ]).unwrap();
+        asm.write_u32::<LE>(bw::AISCRIPT_RET as u32).unwrap();
+        // jmp dword [esp - 4]
+        asm.write_all(&[0xff, 0x64, 0xe4, 0xfc]).unwrap();
+        // wait not set
+        asm.write_all(&[
+            0x61, // popad
+            0xc7, 0x44, 0xe4, 0xfc, // Mov [esp - 4], dword ...
+        ]).unwrap();
+        asm.write_u32::<LE>(bw::AISCRIPT_LOOP as u32).unwrap();
+        // jmp dword [esp - 4]
+        asm.write_all(&[0xff, 0x64, 0xe4, 0xfc]).unwrap();
+    }
+    let exec_asm = exec_alloc(asm.len());
+    std::ptr::copy_nonoverlapping(asm.as_ptr(), exec_asm, asm.len());
+    for (opcode, offset) in asm_offsets {
+        switch_table[opcode as usize] = exec_asm as u32 + offset as u32;
+    }
+
+    let opcode_count_patch = [0x90, 0x3c, opcode_count as u8];
+    exe.replace(bw::AISCRIPT_OPCODE_CMP, &opcode_count_patch);
+    let mut switch_table_ptr = [0u8; 4];
+    (&mut switch_table_ptr[..]).write_u32::<LE>(switch_table.as_ptr() as u32).unwrap();
+    mem::forget(switch_table);
+    exe.replace(bw::AISCRIPT_SWITCH_TABLE, &switch_table_ptr);
 }

@@ -71,7 +71,15 @@ whack_vars!(init_vars, 0x00400000,
     0x0046DE76 => tech_use_requirement_table: *const u16;
     0x0046DF96 => tech_research_requirement_table: *const u16;
     0x0046DD6D => order_requirement_table: *const u16;
+
+    0x0045CA0C => aiscript_default_switch_table: [u32; 0x71];
+    0x0045B892 => aiscript_switch_table_ptr: *mut u32;
 );
+
+pub const AISCRIPT_OPCODE_CMP: usize = 0x0045B883;
+pub const AISCRIPT_SWITCH_TABLE: usize = 0x0045B892;
+pub const AISCRIPT_LOOP: usize = 0x0045B860;
+pub const AISCRIPT_RET: usize = 0x0045C9AA;
 
 whack_funcs!(stdcall, init_funcs_storm, 0x15000000,
     0x150205D0 => SMemFree(*mut u8, *const u8, u32, u32);
