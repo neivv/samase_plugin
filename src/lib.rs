@@ -68,4 +68,7 @@ pub struct PluginApi {
     pub dat_requirements: unsafe extern fn() -> Option<unsafe extern fn(u32, u32) -> *const u16>,
     pub first_guard_ai: unsafe extern fn() -> Option<unsafe extern fn() -> *mut c_void>,
     pub pathing: unsafe extern fn() -> Option<unsafe extern fn() -> *mut c_void>,
+    pub set_first_ai_script: unsafe extern fn() -> Option<unsafe extern fn(*mut c_void)>,
+    pub first_free_ai_script: unsafe extern fn() -> Option<unsafe extern fn() -> *mut c_void>,
+    pub set_first_free_ai_script: unsafe extern fn() -> Option<unsafe extern fn(*mut c_void)>,
 }

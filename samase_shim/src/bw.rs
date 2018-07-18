@@ -52,6 +52,7 @@ whack_vars!(init_vars, 0x00400000,
     0x00597208 => client_selection: [*mut Unit; 0xc];
     0x0059CCA8 => units: [Unit; 0x6a4];
     0x0068C100 => first_ai_script: *mut c_void;
+    0x0068C0F8 => first_free_ai_script: *mut c_void;
     0x00685108 => guard_ais: [[*mut c_void; 0x2]; 0x8];
     0x006D5BFC => pathing: *mut c_void;
 

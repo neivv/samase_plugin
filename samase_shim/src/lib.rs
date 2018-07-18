@@ -347,7 +347,7 @@ pub fn init_1161() -> Context {
     unsafe {
         assert!(CONTEXT.get().is_none());
         let api = PluginApi {
-            version: 8,
+            version: 9,
             padding: 0,
             free_memory,
             write_exe_memory,
@@ -383,6 +383,9 @@ pub fn init_1161() -> Context {
             hook_game_screen_rclick,
             dat_requirements,
             pathing,
+            set_first_ai_script,
+            first_free_ai_script,
+            set_first_free_ai_script,
         };
         let mut patcher = PATCHER.lock().unwrap();
         {
@@ -544,6 +547,27 @@ unsafe extern fn client_selection() -> Option<unsafe extern fn() -> *mut c_void>
 unsafe extern fn first_ai_script() -> Option<unsafe extern fn() -> *mut c_void> {
     unsafe extern fn actual() -> *mut c_void {
         *bw::first_ai_script
+    }
+    Some(actual)
+}
+
+unsafe extern fn set_first_ai_script() -> Option<unsafe extern fn(*mut c_void)> {
+    unsafe extern fn actual(value: *mut c_void) {
+        *bw::first_ai_script = value
+    }
+    Some(actual)
+}
+
+unsafe extern fn first_free_ai_script() -> Option<unsafe extern fn() -> *mut c_void> {
+    unsafe extern fn actual() -> *mut c_void {
+        *bw::first_free_ai_script
+    }
+    Some(actual)
+}
+
+unsafe extern fn set_first_free_ai_script() -> Option<unsafe extern fn(*mut c_void)> {
+    unsafe extern fn actual(value: *mut c_void) {
+        *bw::first_free_ai_script = value
     }
     Some(actual)
 }
