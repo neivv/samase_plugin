@@ -71,4 +71,5 @@ pub struct PluginApi {
     pub set_first_ai_script: unsafe extern fn() -> Option<unsafe extern fn(*mut c_void)>,
     pub first_free_ai_script: unsafe extern fn() -> Option<unsafe extern fn() -> *mut c_void>,
     pub set_first_free_ai_script: unsafe extern fn() -> Option<unsafe extern fn(*mut c_void)>,
+    pub player_ai_towns: unsafe extern fn() -> Option<unsafe extern fn() -> *mut c_void>,
 }

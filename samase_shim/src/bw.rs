@@ -75,6 +75,8 @@ whack_vars!(init_vars, 0x00400000,
 
     0x0045CA0C => aiscript_default_switch_table: [u32; 0x71];
     0x0045B892 => aiscript_switch_table_ptr: *mut u32;
+
+    0x006AA050 => active_ai_towns: [AiTownList; 0x8];
 );
 
 pub const AISCRIPT_OPCODE_CMP: usize = 0x0045B883;
@@ -89,6 +91,7 @@ whack_funcs!(stdcall, init_funcs_storm, 0x15000000,
 pub struct Game;
 pub struct Unit;
 pub struct AiRegion;
+pub struct AiTownList;
 #[repr(C)]
 pub struct PlayerAi {
     _data: [u8; 0x4e8],
