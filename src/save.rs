@@ -1,11 +1,11 @@
 use std;
 use std::cell::{RefCell};
-use std::io::{self, Read, Write, Seek, SeekFrom};
-use std::sync::Mutex;
+use std::io::{self, BufRead, Read, Write, Seek, SeekFrom};
 
 use bincode;
 use byteorder::{ReadBytesExt, WriteBytesExt, LE};
 use flate2;
+use parking_lot::{Mutex, MutexGuard};
 use thread_local::CachedThreadLocal;
 
 pub type SaveHook = Option<unsafe extern fn(unsafe extern fn(*const u8, usize))>;
@@ -47,8 +47,12 @@ struct Hook {
     init: unsafe extern fn(),
 }
 
+fn save_hooks() -> MutexGuard<'static, Vec<Hook>> {
+    SAVE_HOOKS.lock()
+}
+
 pub fn add_hook(tag: String, save: SaveHook, load: LoadHook, init: unsafe extern fn()) {
-    SAVE_HOOKS.lock().unwrap().push(Hook {
+    save_hooks().push(Hook {
         tag,
         save,
         load,
@@ -61,7 +65,7 @@ pub trait File: Read + Seek + Write {
 }
 
 pub fn call_init_hooks() {
-    let hooks = SAVE_HOOKS.lock().unwrap();
+    let hooks = save_hooks();
     for hook in hooks.iter() {
         unsafe {
             (hook.init)();
@@ -75,6 +79,7 @@ struct IterExtensions<'a, T: File + 'a> {
     pos: usize,
 }
 
+#[derive(Debug)]
 struct Chunk {
     tag: String,
     data: Vec<u8>,
@@ -86,7 +91,7 @@ impl<'a, T: File + 'a> Iterator for IterExtensions<'a, T> {
         if self.pos >= self.chunks.len() {
             return None;
         }
-        let pos =self.file.seek(SeekFrom::Current(0)).unwrap();
+        let pos = self.file.seek(SeekFrom::Current(0)).unwrap();
         let mut x = Vec::new();
         self.file.read_to_end(&mut x).unwrap();
         self.file.seek(SeekFrom::Start(pos)).unwrap();
@@ -111,25 +116,33 @@ impl<'a, T: File + 'a> Iterator for IterExtensions<'a, T> {
 }
 
 fn find_extended_data_offset<T: File>(file: &mut T) -> Option<u64> {
-    let mut buf = [0; 512];
-    file.read(&mut buf).ok()?;
-    let mut pos = 0;
-    while *buf.get(pos)? != 0x1a {
-        pos += 1;
-    }
-    pos += 1;
-    let version = buf.get(pos..)?.read_u32::<LE>().ok()?;
-    if version & 0xffff < 4 {
-        file.seek(SeekFrom::End(4)).ok()?;
-        file.read_u32::<LE>().ok().map(|x| x as u64)
-    } else {
-        let chunk_count = buf.get(pos + 8..)?.read_u32::<LE>().ok()?;
-        pos = pos + 0xc;
-        for _ in 0..chunk_count {
-            let chunk_size = buf.get(pos..)?.read_u32::<LE>().ok()?;
-            pos = pos.checked_add(chunk_size as usize)?.checked_add(4)?;
+    let mut read = io::BufReader::new(file);
+    loop {
+        let (skip_amt, end) = {
+            let buf = read.fill_buf().ok()?;
+            if let Some(pos) = buf.iter().position(|&x| x == 0x1a) {
+                (pos + 1, true)
+            } else {
+                (buf.len(), false)
+            }
+        };
+        read.consume(skip_amt);
+        if end {
+            break;
         }
-        Some(buf.get(pos..)?.read_u32::<LE>().ok()? as u64)
+    }
+    let version = read.read_u32::<LE>().ok()?;
+    if version & 0xffff < 4 {
+        read.seek(SeekFrom::End(4)).ok()?;
+        read.read_u32::<LE>().ok().map(u64::from)
+    } else {
+        let _ = read.read_u32::<LE>().ok()?;
+        let chunk_count = read.read_u32::<LE>().ok()?;
+        for _ in 0..chunk_count {
+            let chunk_size = read.read_u32::<LE>().ok()?;
+            read.seek(SeekFrom::Current(i64::from(chunk_size))).ok()?;
+        }
+        Some(u64::from(read.read_u32::<LE>().ok()?))
     }
 }
 
@@ -170,13 +183,16 @@ fn iter_extensions<T: File>(file: &mut T) -> Result<IterExtensions<T>, Error> {
 }
 
 pub fn call_load_hooks<T: File>(mut file: T) -> Result<(), Error> {
-    let hooks = SAVE_HOOKS.lock().unwrap();
+    let hooks = save_hooks();
     let orig_pos = file.seek(SeekFrom::Current(0))?;
-    'outer: for chunk in iter_extensions(&mut file)? {
+    for chunk in iter_extensions(&mut file)? {
         let chunk = chunk?;
+        debug!("Loading {}", chunk.tag);
         for hook in hooks.iter() {
             if hook.tag == chunk.tag {
+                trace!("Hook found");
                 if let Some(load) = hook.load {
+                    trace!("Load hook found");
                     let ok = unsafe {
                         load(chunk.data.as_ptr(), chunk.data.len())
                     };
@@ -207,8 +223,8 @@ pub fn call_save_hooks<T: File>(mut file: T) -> Result<(), Error> {
 
     let mut chunks = Vec::new();
     let mut data = Vec::new();
-    let hooks = SAVE_HOOKS.lock().unwrap();
-    let current_hook_cell = CURRENT_HOOK.get_or(|| Box::new(RefCell::new(Vec::new())));
+    let hooks = save_hooks();
+    let current_hook_cell = CURRENT_HOOK.get_or(|| RefCell::new(Vec::new()));
     current_hook_cell.replace(Vec::new());
     let chunk_start = file.seek(SeekFrom::End(0))?;
     file.write_u32::<LE>(SAVE_MAGIC)?;

@@ -1,37 +1,81 @@
+extern crate byteorder;
 #[macro_use] extern crate lazy_static;
 extern crate libc;
+extern crate parking_lot;
 extern crate thread_local;
 #[macro_use] extern crate whack;
 extern crate winapi;
 
-extern crate plugin_support;
+extern crate samase_plugin;
 
 use std::cell::{Cell, RefCell, RefMut};
 use std::ffi::{CStr, CString};
-use std::io;
+use std::io::{self, Write};
 use std::mem;
 use std::ptr::{null, null_mut};
 use std::slice;
-use std::sync::{Mutex, Once, ONCE_INIT};
+use std::sync::{Once};
+use std::sync::atomic::{AtomicBool, Ordering};
 
+use byteorder::{WriteBytesExt, LE};
 use libc::c_void;
 use thread_local::CachedThreadLocal;
-use winapi::um::heapapi::{GetProcessHeap, HeapAlloc, HeapFree};
+use parking_lot::{Mutex, RwLock};
+use winapi::um::heapapi::{GetProcessHeap, HeapAlloc, HeapCreate, HeapFree};
+use winapi::um::winnt::{HANDLE, HEAP_CREATE_ENABLE_EXECUTE};
 
-use plugin_support::commands::{CommandLength, IngameCommandHook};
-use plugin_support::save::{SaveHook, LoadHook};
+use samase_plugin::commands::{CommandLength, IngameCommandHook};
+use samase_plugin::save::{SaveHook, LoadHook};
 
 mod bw;
 mod windows;
 
-pub use plugin_support::PluginApi;
+pub use samase_plugin::PluginApi;
 
 lazy_static! {
+    static ref EXEC_HEAP: usize = unsafe {
+        HeapCreate(HEAP_CREATE_ENABLE_EXECUTE, 0, 0) as usize
+    };
     static ref PATCHER: whack::Patcher = whack::Patcher::new();
     static ref CONTEXT:
         CachedThreadLocal<RefCell<Option<InternalContext>>> = CachedThreadLocal::new();
     static ref FIRST_FILE_ACCESS_HOOKS: Mutex<Vec<unsafe extern fn()>> = Mutex::new(Vec::new());
+    static ref FILE_READ_HOOKS: RwLock<Vec<FileReadHook>> = RwLock::new(Vec::new());
+    static ref OPEN_HOOKED_FILES: Mutex<Vec<HeapFreeOnDropPtr>> = Mutex::new(Vec::new());
     static ref LAST_FILE_POINTER: CachedThreadLocal<Cell<u64>> = CachedThreadLocal::new();
+}
+
+static HAS_HOOKED_FILES_OPEN: AtomicBool = AtomicBool::new(false);
+
+struct FileReadHook {
+    prefix: Vec<u8>,
+    hook: unsafe extern fn(*const u8, *mut u32) -> *mut u8,
+    being_called: CachedThreadLocal<Cell<bool>>,
+}
+
+impl FileReadHook {
+    unsafe fn matches(&self, filename: *const u8) -> bool {
+        (0..self.prefix.len()).all(|x| self.prefix[x].eq_ignore_ascii_case(&*filename.add(x)))
+    }
+}
+
+struct HeapFreeOnDrop(*mut u8, u32);
+#[derive(Copy, Clone)]
+struct HeapFreeOnDropPtr(*mut HeapFreeOnDrop);
+
+impl std::ops::Drop for HeapFreeOnDrop {
+    fn drop(&mut self) {
+        unsafe {
+            HeapFree(GetProcessHeap(), 0, self.0 as *mut _);
+        }
+    }
+}
+
+unsafe impl Send for HeapFreeOnDropPtr {}
+unsafe impl Sync for HeapFreeOnDropPtr {}
+
+unsafe fn exec_alloc(size: usize) -> *mut u8 {
+    HeapAlloc(*EXEC_HEAP as HANDLE, 0, size) as *mut u8
 }
 
 pub struct Context {
@@ -54,6 +98,17 @@ struct InternalContext {
     send_command: Vec<unsafe extern fn(*mut c_void, u32, unsafe extern fn(*mut c_void, u32))>,
     step_secondary_order: Vec<unsafe extern fn(*mut c_void, unsafe extern fn(*mut c_void))>,
     game_screen_rclick: Vec<unsafe extern fn(*mut c_void, unsafe extern fn(*mut c_void))>,
+    draw_image: Vec<unsafe extern fn(*mut c_void, unsafe extern fn(*mut c_void))>,
+    run_dialog: Vec<unsafe extern fn(
+        *mut c_void,
+        usize,
+        *mut c_void,
+        unsafe extern fn(*mut c_void, usize, *mut c_void) -> u32,
+    ) -> u32>,
+    aiscript_hooks: Vec<(u8, unsafe extern fn(*mut c_void))>,
+    iscript_hooks: Vec<
+        (u8, unsafe extern fn(*mut c_void, *mut c_void, *mut c_void, u32, *mut u32))
+    >,
     save_extensions_used: bool,
 }
 
@@ -136,7 +191,7 @@ impl io::Seek for BwFile {
     }
 }
 
-impl plugin_support::save::File for BwFile {
+impl samase_plugin::save::File for BwFile {
     fn warn(&mut self, msg: &str) {
         if let Ok(msg) = CString::new(msg) {
             unsafe {
@@ -163,21 +218,25 @@ impl Drop for Context {
         let mut exe = patcher.patch_exe(0x00400000);
         unsafe {
             for (hook, after) in ctx.step_objects {
-                exe.hook_closure(bw::StepObjects, move |orig: &Fn()| {
+                exe.hook_closure(bw::StepObjects, move |orig: &dyn Fn()| {
                     if after == 0 {
+                        *bw::rng_enabled = 1;
                         hook();
+                        *bw::rng_enabled = 0;
                         orig();
                     } else {
                         orig();
+                        *bw::rng_enabled = 1;
                         hook();
+                        *bw::rng_enabled = 0;
                     }
                 });
             }
             for hook in ctx.step_order {
-                exe.hook_closure(bw::StepOrder, move |unit, orig: &Fn(_)| {
+                exe.hook_closure(bw::StepOrder, move |unit, orig: &dyn Fn(_)| {
                     // Sketchy, whack should just give fnptrs as the fn traits it currently gives
                     // are stateless anyways.
-                    static mut ORIG: FnTraitGlobal<*const Fn(*mut c_void)> =
+                    static mut ORIG: FnTraitGlobal<*const dyn Fn(*mut c_void)> =
                         FnTraitGlobal::NotSet;
                     ORIG.set(mem::transmute(orig));
                     unsafe extern fn call_orig(unit: *mut c_void) {
@@ -188,8 +247,8 @@ impl Drop for Context {
                 });
             }
             for hook in ctx.step_order_hidden {
-                exe.hook_closure(bw::StepOrder_Hidden, move |unit, orig: &Fn(_)| {
-                    static mut ORIG: FnTraitGlobal<*const Fn(*mut c_void)> =
+                exe.hook_closure(bw::StepOrder_Hidden, move |unit, orig: &dyn Fn(_)| {
+                    static mut ORIG: FnTraitGlobal<*const dyn Fn(*mut c_void)> =
                         FnTraitGlobal::NotSet;
                     ORIG.set(mem::transmute(orig));
                     unsafe extern fn call_orig(unit: *mut c_void) {
@@ -200,8 +259,8 @@ impl Drop for Context {
                 });
             }
             for hook in ctx.step_secondary_order {
-                exe.hook_closure(bw::StepSecondaryOrder, move |unit, orig: &Fn(_)| {
-                    static mut ORIG: FnTraitGlobal<*const Fn(*mut c_void)> =
+                exe.hook_closure(bw::StepSecondaryOrder, move |unit, orig: &dyn Fn(_)| {
+                    static mut ORIG: FnTraitGlobal<*const dyn Fn(*mut c_void)> =
                         FnTraitGlobal::NotSet;
                     ORIG.set(mem::transmute(orig));
                     unsafe extern fn call_orig(unit: *mut c_void) {
@@ -212,8 +271,8 @@ impl Drop for Context {
                 });
             }
             for hook in ctx.send_command {
-                exe.hook_closure(bw::SendCommand, move |data, len, orig: &Fn(_, _)| {
-                    static mut ORIG: FnTraitGlobal<*const Fn(*mut c_void, u32)> =
+                exe.hook_closure(bw::SendCommand, move |data, len, orig: &dyn Fn(_, _)| {
+                    static mut ORIG: FnTraitGlobal<*const dyn Fn(*mut c_void, u32)> =
                         FnTraitGlobal::NotSet;
                     ORIG.set(mem::transmute(orig));
                     unsafe extern fn call_orig(data: *mut c_void, len: u32) {
@@ -226,8 +285,8 @@ impl Drop for Context {
             for hook in ctx.process_commands {
                 exe.hook_closure(
                     bw::ProcessCommands,
-                    move |data, len, replay, orig: &Fn(_, _, _)| {
-                        static mut ORIG: FnTraitGlobal<*const Fn(*const c_void, u32, u32)> =
+                    move |data, len, replay, orig: &dyn Fn(_, _, _)| {
+                        static mut ORIG: FnTraitGlobal<*const dyn Fn(*const c_void, u32, u32)> =
                             FnTraitGlobal::NotSet;
                         ORIG.set(mem::transmute(orig));
                         unsafe extern fn call_orig(data: *const c_void, len: u32, replay: u32) {
@@ -241,8 +300,8 @@ impl Drop for Context {
             for hook in ctx.process_lobby_commands {
                 exe.hook_closure(
                     bw::ProcessLobbyCommands,
-                    move |data, len, replay, orig: &Fn(_, _, _)| {
-                        static mut ORIG: FnTraitGlobal<*const Fn(*const c_void, u32, u32)> =
+                    move |data, len, replay, orig: &dyn Fn(_, _, _)| {
+                        static mut ORIG: FnTraitGlobal<*const dyn Fn(*const c_void, u32, u32)> =
                             FnTraitGlobal::NotSet;
                         ORIG.set(mem::transmute(orig));
                         unsafe extern fn call_orig(data: *const c_void, len: u32, replay: u32) {
@@ -254,8 +313,8 @@ impl Drop for Context {
                 );
             }
             for hook in ctx.game_screen_rclick {
-                exe.hook_closure(bw::GameScreenRClick, move |event, orig: &Fn(_)| {
-                    static mut ORIG: FnTraitGlobal<*const Fn(*mut c_void)> =
+                exe.hook_closure(bw::GameScreenRClick, move |event, orig: &dyn Fn(_)| {
+                    static mut ORIG: FnTraitGlobal<*const dyn Fn(*mut c_void)> =
                         FnTraitGlobal::NotSet;
                     ORIG.set(mem::transmute(orig));
                     unsafe extern fn call_orig(event: *mut c_void) {
@@ -269,15 +328,49 @@ impl Drop for Context {
                     hook(&mut converted as *mut bw::scr::Event as *mut c_void, call_orig);
                 });
             }
+            for hook in ctx.draw_image {
+                exe.hook_closure(bw::DrawImage, move |image, orig: &dyn Fn(_)| {
+                    static mut ORIG: FnTraitGlobal<*const dyn Fn(*mut bw::Image)> =
+                        FnTraitGlobal::NotSet;
+                    ORIG.set(mem::transmute(orig));
+                    unsafe extern fn call_orig(image: *mut c_void) {
+                        let orig = ORIG.get();
+                        (*orig)(image as *mut bw::Image)
+                    }
+                    hook(image as *mut c_void, call_orig);
+                });
+            }
+            for hook in ctx.run_dialog {
+                exe.hook_closure(
+                    bw::RunDialog,
+                    move |dialog, event_handler, orig: &dyn Fn(_, _) -> _| {
+                        static mut ORIG:
+                            FnTraitGlobal<*const dyn Fn(*mut c_void, *mut c_void) -> u32> =
+                            FnTraitGlobal::NotSet;
+                        ORIG.set(mem::transmute(orig));
+                        unsafe extern fn call_orig(
+                            dialog: *mut c_void,
+                            _unused: usize,
+                            event_handler: *mut c_void,
+                        ) -> u32 {
+                            let orig = ORIG.get();
+                            (*orig)(dialog, event_handler)
+                        }
+                        hook(dialog, 0, event_handler, call_orig);
+                    }
+                );
+            }
+            apply_aiscript_hooks(&mut exe, &ctx.aiscript_hooks);
+            apply_iscript_hooks(&mut exe, &ctx.iscript_hooks);
             if ctx.save_extensions_used {
                 unsafe fn save_hook(file: *mut c_void) {
                     // TODO ?
-                    let _ = plugin_support::save::call_save_hooks(BwFile(file));
+                    let _ = samase_plugin::save::call_save_hooks(BwFile(file));
                 }
                 unsafe fn load_hook() {
                     if *bw::loaded_save != null_mut() {
                         let result =
-                            plugin_support::save::call_load_hooks(BwFile(*bw::loaded_save));
+                            samase_plugin::save::call_load_hooks(BwFile(*bw::loaded_save));
                         if let Err(e) = result {
                             // TODO not crashing
                             panic!("{}", e);
@@ -288,8 +381,8 @@ impl Drop for Context {
                     LAST_FILE_POINTER.get_or(|| Box::new(Cell::new(0))).set(val as u64);
                 }
                 exe.call_hook(bw::SaveReady, save_hook);
-                exe.hook_closure(bw::InitGame, |orig: &Fn()| {
-                    plugin_support::save::call_init_hooks();
+                exe.hook_closure(bw::InitGame, |orig: &dyn Fn()| {
+                    samase_plugin::save::call_init_hooks();
                     orig();
                 });
                 exe.call_hook(bw::LoadReady, load_hook);
@@ -301,12 +394,12 @@ impl Drop for Context {
                 exe.replace(addr, &data);
             }
         }
-        let first_file_hooks = FIRST_FILE_ACCESS_HOOKS.lock().unwrap();
+        let first_file_hooks = FIRST_FILE_ACCESS_HOOKS.lock();
         if !first_file_hooks.is_empty() {
             unsafe fn call_hooks() {
-                static ONCE: Once = ONCE_INIT;
+                static ONCE: Once = Once::new();
                 ONCE.call_once(|| {
-                    let first_file_hooks = FIRST_FILE_ACCESS_HOOKS.lock().unwrap();
+                    let first_file_hooks = FIRST_FILE_ACCESS_HOOKS.lock();
                     for hook in &*first_file_hooks {
                         hook();
                     }
@@ -314,6 +407,125 @@ impl Drop for Context {
             }
             unsafe {
                 exe.call_hook(bw::FirstFileAccess, call_hooks);
+            }
+        }
+        drop(exe);
+        let file_read_hooks = FILE_READ_HOOKS.read();
+        if !file_read_hooks.is_empty() {
+            unsafe fn open_hook(
+                archive: *mut c_void,
+                filename: *const u8,
+                flags: u32,
+                out: *mut *mut c_void,
+                orig: &dyn Fn(*mut c_void, *const u8, u32, *mut *mut c_void) -> u32,
+            ) -> u32 {
+                let hooks = FILE_READ_HOOKS.read();
+                let mut result = None;
+                let mut any_called = false;
+                let mut already_calling = false;
+                for i in 0..hooks.len() {
+                    let hook = &hooks[i];
+                    if hook.matches(filename) {
+                        let call_marker = hook.being_called.get_or(|| Box::new(Cell::new(false)));
+                        if call_marker.get() == false {
+                            any_called = true;
+                            call_marker.set(true);
+                            let mut size = 0u32;
+                            let file = (hook.hook)(filename, &mut size);
+                            if file != null_mut() {
+                                result = Some(Box::new(HeapFreeOnDrop(file, size)));
+                                break;
+                            }
+                        } else {
+                            already_calling = true;
+                        }
+                    }
+                }
+                if any_called && !already_calling {
+                    for hook in &*hooks {
+                        let call_marker = hook.being_called.get_or(|| Box::new(Cell::new(false)));
+                        call_marker.set(false);
+                    }
+                }
+                if let Some(result) = result {
+                    let raw = HeapFreeOnDropPtr(Box::into_raw(result));
+                    let mut open_files = OPEN_HOOKED_FILES.lock();
+                    HAS_HOOKED_FILES_OPEN.store(true, Ordering::Relaxed);
+                    open_files.push(raw);
+                    *out = raw.0 as *mut c_void;
+                    1
+                } else {
+                    orig(archive, filename, flags, out)
+                }
+            }
+
+            unsafe fn size_hook(
+                file: *mut c_void,
+                out_high: *mut u32,
+                orig: &dyn Fn(*mut c_void, *mut u32) -> u32,
+            ) -> u32 {
+                if HAS_HOOKED_FILES_OPEN.load(Ordering::Relaxed) {
+                    let files = OPEN_HOOKED_FILES.lock();
+                    for hooked in &*files {
+                        if file == hooked.0 as *mut c_void {
+                            if !out_high.is_null() {
+                                *out_high = 0;
+                            }
+                            return (*hooked.0).1;
+                        }
+                    }
+                }
+                orig(file, out_high)
+            }
+
+            unsafe fn read_hook(
+                file: *mut c_void,
+                out: *mut u8,
+                len: u32,
+                out_len: *mut u32,
+                overlapped: *mut c_void,
+                orig: &dyn Fn(*mut c_void, *mut u8, u32, *mut u32, *mut c_void) -> u32,
+            ) -> u32 {
+                if HAS_HOOKED_FILES_OPEN.load(Ordering::Relaxed) {
+                    let files = OPEN_HOOKED_FILES.lock();
+                    for hooked in &*files {
+                        if file == hooked.0 as *mut c_void {
+                            assert!(overlapped.is_null());
+                            let len = ((*hooked.0).1).min(len);
+                            std::ptr::copy_nonoverlapping((*hooked.0).0, out, len as usize);
+                            *out_len = len;
+                            return 1;
+                        }
+                    }
+                }
+                orig(file, out, len, out_len, overlapped)
+            }
+
+            unsafe fn close_hook(
+                file: *mut c_void,
+                orig: &dyn Fn(*mut c_void),
+            ) {
+                if HAS_HOOKED_FILES_OPEN.load(Ordering::Relaxed) {
+                    let mut files = OPEN_HOOKED_FILES.lock();
+                    for i in 0..files.len() {
+                        if files[i].0 as *mut c_void == file {
+                            Box::from_raw(files[i].0);
+                            files.remove(i);
+                            if files.is_empty() {
+                                HAS_HOOKED_FILES_OPEN.store(false, Ordering::Relaxed);
+                            }
+                            return;
+                        }
+                    }
+                }
+                orig(file)
+            }
+            unsafe {
+                let mut storm = patcher.patch_library("storm", 0x15000000);
+                storm.hook_opt(bw::SFileOpenFileEx_Hook, open_hook);
+                storm.hook_opt(bw::SFileGetFileSize_Hook, size_hook);
+                storm.hook_opt(bw::SFileReadFile_Hook, read_hook);
+                storm.hook_opt(bw::SFileCloseFile_Hook, close_hook);
             }
         }
     }
@@ -335,7 +547,7 @@ pub fn init_1161() -> Context {
     unsafe {
         assert!(CONTEXT.get().is_none());
         let api = PluginApi {
-            version: 7,
+            version: samase_plugin::VERSION,
             padding: 0,
             free_memory,
             write_exe_memory,
@@ -370,6 +582,37 @@ pub fn init_1161() -> Context {
             first_guard_ai,
             hook_game_screen_rclick,
             dat_requirements,
+            pathing,
+            set_first_ai_script,
+            first_free_ai_script,
+            set_first_free_ai_script,
+            player_ai_towns,
+            map_tile_flags,
+            players,
+            hook_draw_image,
+            hook_renderer,
+            get_iscript_bin,
+            set_iscript_bin,
+            hook_iscript_opcode,
+            sprite_hlines,
+            sprite_hlines_end,
+            hook_file_read,
+            first_active_bullet,
+            first_lone_sprite,
+            add_overlay_iscript,
+            set_campaigns,
+            hook_run_dialog,
+            send_command,
+            ai_update_attack_target,
+            update_visibility_point,
+            create_lone_sprite,
+            step_iscript,
+            is_outside_game_screen,
+            screen_pos,
+            ui_scale,
+            first_fow_sprite,
+            is_replay,
+            local_player_id,
         };
         let mut patcher = PATCHER.lock().unwrap();
         {
@@ -377,8 +620,8 @@ pub fn init_1161() -> Context {
             bw::init_funcs_storm(&mut storm);
         }
         {
-            fn init_mpqs_only_once(orig: &Fn()) {
-                static ONCE: Once = ONCE_INIT;
+            fn init_mpqs_only_once(orig: &dyn Fn()) {
+                static ONCE: Once = Once::new();
                 ONCE.call_once(orig);
             }
 
@@ -412,27 +655,46 @@ unsafe extern fn warn_unsupported_feature(feature: *const u8) {
     );
 }
 
+struct SFileHandle(*mut c_void);
+
+impl Drop for SFileHandle {
+    fn drop(&mut self) {
+        unsafe {
+            bw::SFileCloseFile(self.0);
+        }
+    }
+}
+
 unsafe extern fn read_file() -> unsafe extern fn(*const u8, *mut usize) -> *mut u8 {
     unsafe extern fn actual(path: *const u8, size: *mut usize) -> *mut u8 {
         let len = (0..).find(|&x| *path.offset(x) == 0).unwrap() as usize;
-        let mut buf = vec![0; len + 1];
+        let mut filename = vec![0; len + 1];
         for i in 0..len {
-            buf[i] = *path.offset(i as isize);
-            if buf[i] == b'/' {
-                buf[i] = b'\\';
+            filename[i] = *path.offset(i as isize);
+            if filename[i] == b'/' {
+                filename[i] = b'\\';
             }
         }
         bw::init_mpqs();
-        let data = bw::read_file(buf.as_ptr(), 0, 0, b"\0".as_ptr(), 0, 0, size);
-        if data == null_mut() {
-            null_mut()
-        } else {
-            let buf = HeapAlloc(GetProcessHeap(), 0, *size) as *mut u8;
-            let buf_slice = slice::from_raw_parts_mut(buf, *size);
-            buf_slice.copy_from_slice(slice::from_raw_parts(data, *size));
-            bw::SMemFree(data, b"\0".as_ptr(), 0, 0);
-            buf
+        let mut handle = null_mut();
+        let success = bw::SFileOpenFileEx(null_mut(), filename.as_ptr(), 0, &mut handle);
+        if success == 0 || handle.is_null() {
+            return null_mut();
         }
+        let handle = SFileHandle(handle);
+        let mut high = 0;
+        let file_size = bw::SFileGetFileSize(handle.0, &mut high);
+        if high > 0 || file_size == 0 {
+            return null_mut();
+        }
+        let buf = HeapAlloc(GetProcessHeap(), 0, file_size as usize) as *mut u8;
+        let mut read = 0;
+        let success = bw::SFileReadFile(handle.0, buf, file_size, &mut read, 0);
+        if success == 0 {
+            return null_mut();
+        }
+        *size = file_size as usize;
+        buf
     }
     actual
 }
@@ -456,9 +718,13 @@ unsafe extern fn hook_step_objects(hook: unsafe extern fn(), after: u32) -> u32 
     1
 }
 
-unsafe extern fn hook_aiscript_opcode(_opcode: u32, _hook: unsafe extern fn(*mut c_void)) -> u32 {
-    // TODO
-    0
+unsafe extern fn hook_aiscript_opcode(opcode: u32, hook: unsafe extern fn(*mut c_void)) -> u32 {
+    if opcode < 0x100 {
+        context().aiscript_hooks.push((opcode as u8, hook));
+        1
+    } else {
+        0
+    }
 }
 
 unsafe extern fn ai_regions() -> Option<unsafe extern fn() -> *mut c_void> {
@@ -531,9 +797,58 @@ unsafe extern fn first_ai_script() -> Option<unsafe extern fn() -> *mut c_void> 
     Some(actual)
 }
 
+unsafe extern fn set_first_ai_script() -> Option<unsafe extern fn(*mut c_void)> {
+    unsafe extern fn actual(value: *mut c_void) {
+        *bw::first_ai_script = value
+    }
+    Some(actual)
+}
+
+unsafe extern fn first_free_ai_script() -> Option<unsafe extern fn() -> *mut c_void> {
+    unsafe extern fn actual() -> *mut c_void {
+        *bw::first_free_ai_script
+    }
+    Some(actual)
+}
+
+unsafe extern fn set_first_free_ai_script() -> Option<unsafe extern fn(*mut c_void)> {
+    unsafe extern fn actual(value: *mut c_void) {
+        *bw::first_free_ai_script = value
+    }
+    Some(actual)
+}
+
+unsafe extern fn player_ai_towns() -> Option<unsafe extern fn() -> *mut c_void> {
+    unsafe extern fn actual() -> *mut c_void {
+        &mut bw::active_ai_towns[0] as *mut bw::AiTownList as *mut c_void
+    }
+    Some(actual)
+}
+
 unsafe extern fn first_guard_ai() -> Option<unsafe extern fn() -> *mut c_void> {
     unsafe extern fn actual() -> *mut c_void {
         bw::guard_ais.as_ptr() as *mut c_void
+    }
+    Some(actual)
+}
+
+unsafe extern fn pathing() -> Option<unsafe extern fn() -> *mut c_void> {
+    unsafe extern fn actual() -> *mut c_void {
+        *bw::pathing
+    }
+    Some(actual)
+}
+
+unsafe extern fn map_tile_flags() -> Option<unsafe extern fn() -> *mut u32> {
+    unsafe extern fn actual() -> *mut u32 {
+        *bw::map_tile_flags
+    }
+    Some(actual)
+}
+
+unsafe extern fn players() -> Option<unsafe extern fn() -> *mut c_void> {
+    unsafe extern fn actual() -> *mut c_void {
+        &mut bw::players[0] as *mut bw::Player as *mut c_void
     }
     Some(actual)
 }
@@ -566,8 +881,97 @@ unsafe extern fn print_text() -> Option<unsafe extern fn(*const u8)> {
     Some(actual)
 }
 
+unsafe extern fn send_command() -> Option<unsafe extern fn(*const c_void, u32)> {
+    unsafe extern fn actual(data: *const c_void, len: u32) {
+        bw::send_command(data, len);
+    }
+    Some(actual)
+}
+
+unsafe extern fn ai_update_attack_target() ->
+    Option<unsafe extern fn(*mut c_void, u32, u32, u32) -> u32>
+{
+    unsafe extern fn actual(unit: *mut c_void, a1: u32, a2: u32, a3: u32) -> u32 {
+        bw::ai_update_attack_target(unit, a1, a2, a3)
+    }
+    Some(actual)
+}
+
+unsafe extern fn update_visibility_point() -> Option<unsafe extern fn(*mut c_void)> {
+    unsafe extern fn actual(lone_sprite: *mut c_void) {
+        bw::update_visibility_point(lone_sprite);
+    }
+    Some(actual)
+}
+
+unsafe extern fn create_lone_sprite() ->
+    Option<unsafe extern fn(u32, i32, i32, u32) -> *mut c_void>
+{
+    unsafe extern fn actual(id: u32, x: i32, y: i32, player: u32) -> *mut c_void {
+        bw::create_lone_sprite(id, x, y, player)
+    }
+    Some(actual)
+}
+
+unsafe extern fn step_iscript() ->
+    Option<unsafe extern fn(*mut c_void, *mut c_void, u32, *mut u32)>
+{
+    unsafe extern fn actual(
+        image: *mut c_void,
+        iscript: *mut c_void,
+        dry_run: u32,
+        speed_out: *mut u32,
+    ) {
+        bw::step_iscript(image, iscript, dry_run, speed_out)
+    }
+    Some(actual)
+}
+
+unsafe extern fn is_outside_game_screen() -> Option<unsafe extern fn(i32, i32) -> u32> {
+    unsafe extern fn actual(x: i32, y: i32) -> u32 {
+        bw::is_outside_game_screen(x, y)
+    }
+    Some(actual)
+}
+
+unsafe extern fn screen_pos() -> Option<unsafe extern fn(*mut i32, *mut i32)> {
+    unsafe extern fn actual(x: *mut i32, y: *mut i32) {
+        *x = *bw::screen_x;
+        *y = *bw::screen_y;
+    }
+    Some(actual)
+}
+
+unsafe extern fn ui_scale() -> Option<unsafe extern fn() -> f32> {
+    unsafe extern fn actual() -> f32 {
+        1.0
+    }
+    Some(actual)
+}
+
+unsafe extern fn first_fow_sprite() -> Option<unsafe extern fn() -> *mut c_void> {
+    unsafe extern fn actual() -> *mut c_void {
+        *bw::first_fow_sprite
+    }
+    Some(actual)
+}
+
+unsafe extern fn is_replay() -> Option<unsafe extern fn() -> u32> {
+    unsafe extern fn actual() -> u32 {
+        *bw::is_replay
+    }
+    Some(actual)
+}
+
+unsafe extern fn local_player_id() -> Option<unsafe extern fn() -> u32> {
+    unsafe extern fn actual() -> u32 {
+        *bw::local_player_id
+    }
+    Some(actual)
+}
+
 unsafe extern fn hook_on_first_file_access(hook: unsafe extern fn()) {
-    FIRST_FILE_ACCESS_HOOKS.lock().unwrap().push(hook);
+    FIRST_FILE_ACCESS_HOOKS.lock().push(hook);
 }
 
 unsafe extern fn hook_step_order(
@@ -657,6 +1061,118 @@ unsafe extern fn hook_game_screen_rclick(
     1
 }
 
+unsafe extern fn hook_draw_image(
+    hook: unsafe extern fn(*mut c_void, unsafe extern fn(*mut c_void)),
+) -> u32 {
+    context().draw_image.push(hook);
+    1
+}
+
+unsafe extern fn hook_run_dialog(
+    hook: unsafe extern fn(
+        *mut c_void,
+        usize,
+        *mut c_void,
+        unsafe extern fn(*mut c_void, usize, *mut c_void) -> u32,
+    ) -> u32,
+) -> u32 {
+    context().run_dialog.push(hook);
+    1
+}
+
+unsafe extern fn hook_renderer(
+    _type: u32,
+    _hook: unsafe extern fn(),
+) -> u32 {
+    0
+}
+
+unsafe extern fn get_iscript_bin() -> Option<unsafe extern fn() -> *mut c_void> {
+    unsafe extern fn actual() -> *mut c_void {
+        *bw::iscript_bin
+    }
+    Some(actual)
+}
+
+unsafe extern fn set_iscript_bin() -> Option<unsafe extern fn(*mut c_void)> {
+    unsafe extern fn actual(value: *mut c_void) {
+        *bw::iscript_bin = value
+    }
+    Some(actual)
+}
+
+unsafe extern fn hook_iscript_opcode(
+    opcode: u32,
+    hook: unsafe extern fn(*mut c_void, *mut c_void, *mut c_void, u32, *mut u32),
+) -> u32 {
+    if opcode < 0x100 {
+        context().iscript_hooks.push((opcode as u8, hook));
+        1
+    } else {
+        0
+    }
+}
+
+unsafe extern fn sprite_hlines() -> Option<unsafe extern fn() -> *mut *mut c_void> {
+    unsafe extern fn actual() -> *mut *mut c_void {
+        &mut bw::sprite_hlines[0] as *mut *mut c_void
+    }
+    Some(actual)
+}
+
+unsafe extern fn sprite_hlines_end() -> Option<unsafe extern fn() -> *mut *mut c_void> {
+    unsafe extern fn actual() -> *mut *mut c_void {
+        &mut bw::sprite_hlines_end[0] as *mut *mut c_void
+    }
+    Some(actual)
+}
+
+unsafe extern fn first_active_bullet() -> Option<unsafe extern fn() -> *mut c_void> {
+    unsafe extern fn actual() -> *mut c_void {
+        *bw::first_active_bullet
+    }
+    Some(actual)
+}
+
+unsafe extern fn first_lone_sprite() -> Option<unsafe extern fn() -> *mut c_void> {
+    unsafe extern fn actual() -> *mut c_void {
+        *bw::first_lone_sprite
+    }
+    Some(actual)
+}
+
+unsafe extern fn add_overlay_iscript() ->
+    Option<unsafe extern fn(*mut c_void, u32, i32, i32, u32) -> *mut c_void>
+{
+    unsafe extern fn actual(
+        image: *mut c_void,
+        image_id: u32,
+        x: i32,
+        y: i32,
+        above: u32,
+    ) -> *mut c_void {
+        bw::add_overlay_iscript(image as *mut bw::Image, image_id, x, y, above) as *mut c_void
+    }
+    Some(actual)
+}
+
+unsafe extern fn set_campaigns(val: *const *mut c_void) -> u32 {
+    write_exe_memory(&bw::campaigns[0] as *const *mut c_void as usize, val as *const u8, 6 * 4);
+    1
+}
+
+unsafe extern fn hook_file_read(
+    prefix: *const u8,
+    hook: unsafe extern fn(*const u8, *mut u32) -> *mut u8,
+) {
+    let prefix = CStr::from_ptr(prefix as *const i8).to_bytes().into();
+    FILE_READ_HOOKS.write().push(FileReadHook {
+        prefix,
+        hook,
+        being_called: CachedThreadLocal::new(),
+    });
+}
+
 unsafe extern fn extend_save(
     tag: *const u8,
     save: SaveHook,
@@ -664,7 +1180,7 @@ unsafe extern fn extend_save(
     init: unsafe extern fn(),
 ) -> u32 {
     let tag = CStr::from_ptr(tag as *const i8).to_string_lossy();
-    plugin_support::save::add_hook(tag.into(), save, load, init);
+    samase_plugin::save::add_hook(tag.into(), save, load, init);
     context().save_extensions_used = true;
     1
 }
@@ -674,9 +1190,9 @@ unsafe extern fn hook_ingame_command(
     hook: IngameCommandHook,
     len: Option<CommandLength>,
 ) -> u32 {
-    use plugin_support::commands;
+    use samase_plugin::commands;
 
-    static INGAME_COMMAND_HOOK: Once = ONCE_INIT;
+    static INGAME_COMMAND_HOOK: Once = Once::new();
     if cmd >= 0x100 {
         return 0;
     }
@@ -731,4 +1247,159 @@ unsafe extern fn dat_requirements() -> Option<unsafe extern fn(u32, u32) -> *con
         }
     }
     Some(inner)
+}
+
+unsafe fn apply_aiscript_hooks(
+    exe: &mut whack::ModulePatcher,
+    hooks: &[(u8, unsafe extern fn(*mut c_void))],
+) {
+    if hooks.is_empty() {
+        return;
+    }
+    // Going to set last as !0 so other plugins using this same shim can use it
+    // to count patched switch table length
+    let unpatched_switch_table =
+        *bw::aiscript_switch_table_ptr == bw::aiscript_default_switch_table.as_mut_ptr();
+    let old_opcode_count = if unpatched_switch_table {
+        0x71
+    } else {
+        let switch_table = *bw::aiscript_switch_table_ptr;
+        (0u32..).find(|&x| *switch_table.offset(x as isize) == !0).unwrap()
+    };
+    let opcode_count =
+        hooks.iter().map(|x| x.0 as u32 + 1).max().unwrap_or(0).max(old_opcode_count);
+    let mut switch_table = vec![0; opcode_count as usize + 2];
+    switch_table[opcode_count as usize + 1] = !0;
+    for i in 0..old_opcode_count {
+        let old_switch_table = *bw::aiscript_switch_table_ptr;
+        switch_table[i as usize] = *old_switch_table.offset(i as isize);
+    }
+    let mut asm_offsets = Vec::with_capacity(hooks.len());
+    let mut asm = Vec::new();
+    for &(opcode, fun) in hooks {
+        asm_offsets.push((opcode, asm.len()));
+        asm.write_all(&[
+            0x60, // pushad
+            0x56, // push esi (aiscript)
+            0xb8, // mov eax, ...
+        ]).unwrap();
+        asm.write_u32::<LE>(mem::transmute(fun)).unwrap();
+        asm.write_all(&[
+            0xff, 0xd0, // call eax
+            0x59, // pop ecx
+            0x8b, 0x46, 0x0c, // mov eax, [esi + 0xc] (Script wait)
+            0x31, 0xc9, // xor ecx, ecx
+            0x49, // dec ecx
+            0x39, 0xc8, // cmp eax, ecx
+            0x74, 0x0d, // je wait not set
+            0x61, // popad
+            0xc7, 0x44, 0xe4, 0xfc, // Mov [esp - 4], dword ...
+        ]).unwrap();
+        asm.write_u32::<LE>(bw::AISCRIPT_RET as u32).unwrap();
+        // jmp dword [esp - 4]
+        asm.write_all(&[0xff, 0x64, 0xe4, 0xfc]).unwrap();
+        // wait not set
+        asm.write_all(&[
+            0x61, // popad
+            0xc7, 0x44, 0xe4, 0xfc, // Mov [esp - 4], dword ...
+        ]).unwrap();
+        asm.write_u32::<LE>(bw::AISCRIPT_LOOP as u32).unwrap();
+        // jmp dword [esp - 4]
+        asm.write_all(&[0xff, 0x64, 0xe4, 0xfc]).unwrap();
+    }
+    let exec_asm = exec_alloc(asm.len());
+    std::ptr::copy_nonoverlapping(asm.as_ptr(), exec_asm, asm.len());
+    for (opcode, offset) in asm_offsets {
+        switch_table[opcode as usize] = exec_asm as u32 + offset as u32;
+    }
+
+    let opcode_count_patch = [0x90, 0x3c, opcode_count as u8];
+    exe.replace(bw::AISCRIPT_OPCODE_CMP, &opcode_count_patch);
+    let mut switch_table_ptr = [0u8; 4];
+    (&mut switch_table_ptr[..]).write_u32::<LE>(switch_table.as_ptr() as u32).unwrap();
+    mem::forget(switch_table);
+    exe.replace(bw::AISCRIPT_SWITCH_TABLE, &switch_table_ptr);
+}
+
+unsafe fn apply_iscript_hooks(
+    exe: &mut whack::ModulePatcher,
+    hooks: &[(u8, unsafe extern fn(*mut c_void, *mut c_void, *mut c_void, u32, *mut u32))]
+) {
+    if hooks.is_empty() {
+        return;
+    }
+    // Going to set last as !0 so other plugins using this same shim can use it
+    // to count patched switch table length
+    let unpatched_switch_table =
+        *bw::iscript_switch_table_ptr == bw::iscript_default_switch_table.as_mut_ptr();
+    let old_opcode_count = if unpatched_switch_table {
+        0x45
+    } else {
+        let switch_table = *bw::iscript_switch_table_ptr;
+        (0u32..).find(|&x| *switch_table.offset(x as isize) == !0).unwrap()
+    };
+    let opcode_count =
+        hooks.iter().map(|x| x.0 as u32 + 1).max().unwrap_or(0).max(old_opcode_count);
+    let mut switch_table = vec![0; opcode_count as usize + 2];
+    switch_table[opcode_count as usize + 1] = !0;
+    for i in 0..old_opcode_count {
+        let old_switch_table = *bw::iscript_switch_table_ptr;
+        switch_table[i as usize] = *old_switch_table.offset(i as isize);
+    }
+
+    let mut asm_offsets = Vec::with_capacity(hooks.len());
+    let mut asm = Vec::new();
+    for &(opcode, fun) in hooks {
+        asm_offsets.push((opcode, asm.len()));
+        asm.write_all(&[
+            0x60, // pushad
+            0xff, 0x75, 0x10, // push [ebp + c] (out_speed)
+            0xff, 0x75, 0x0c, // push [ebp + c] (dry run)
+            0x56, // push esi (image)
+            0xff, 0x75, 0x08, // push [ebp + 8] (iscript struct)
+            0x57, // push edi (iscript_bin)
+            0xb8, // mov eax, ...
+        ]).unwrap();
+        asm.write_u32::<LE>(mem::transmute(fun)).unwrap();
+        asm.write_all(&[
+            0xff, 0xd0, // call eax
+            0x83, 0xc4, 0x14, // add esp, 14
+            0x8b, 0x4d, 0x08, // mov ecx, [ebp + 8] (restore iscript struct)
+            0x8a, 0x51, 0x07, // mov dl, byte [ecx + 7] (script wait)
+            0xfe, 0xca, // dec dl
+            0x31, 0xdb, // xor ebx, ebx
+            0x4b, // dec ebx
+            0x38, 0xda, // cmp dl, bl
+            0x74, 0x0d, // je wait not set
+            0x88, 0x51, 0x07, // mov [ecx + 7], dl
+            0x61, // popad
+            0x5f, // pop edi
+            0x5e, // pop esi
+            0x5b, // pop ebx
+            0x8b, 0xe5, // mov esp, ebp
+            0x5d, // pop ebp
+            0xc2, 0x0c, 0x00, // ret 0c
+            // wait_not_set:
+            0xa1, 0x00, 0x12, 0x6d, 0x00, // mov eax [6d1200] (iscript_bin)
+            0x0f, 0xb7, 0x79, 0x02, // movzx edi word [ecx + 2] (script pos)
+            0x03, 0xf8, // add edi, eax
+            0x89, 0x7d, 0xf8, // mov [ebp - 8], edi
+            0x61, // popad
+            0xc7, 0x44, 0xe4, 0xfc, // Mov [esp - 4], dword ...
+        ]).unwrap();
+        asm.write_u32::<LE>(bw::ISCRIPT_LOOP as u32).unwrap();
+        // jmp dword [esp - 4]
+        asm.write_all(&[0xff, 0x64, 0xe4, 0xfc]).unwrap();
+    }
+    let exec_asm = exec_alloc(asm.len());
+    std::ptr::copy_nonoverlapping(asm.as_ptr(), exec_asm, asm.len());
+    for (opcode, offset) in asm_offsets {
+        switch_table[opcode as usize] = exec_asm as u32 + offset as u32;
+    }
+
+    let opcode_count_patch = [0x90, 0x3c, opcode_count as u8];
+    exe.replace(bw::ISCRIPT_OPCODE_CMP, &opcode_count_patch);
+    let switch_table_ptr = switch_table.as_ptr() as u32;
+    mem::forget(switch_table);
+    exe.replace_val(bw::ISCRIPT_SWITCH_TABLE, switch_table_ptr);
 }

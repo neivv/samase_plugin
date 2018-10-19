@@ -1,4 +1,4 @@
-#![allow(non_upper_case_globals, non_camel_case_types)]
+#![allow(bad_style)]
 use libc::c_void;
 
 whack_funcs!(stdcall, init_funcs, 0x00400000,
@@ -10,6 +10,18 @@ whack_funcs!(stdcall, init_funcs, 0x00400000,
     0x00475000 => do_next_queued_order(@ecx *mut Unit);
     0x0048D1C0 => print_text(*const u8, @eax u32, u32);
     0x004DABD0 => init_mpqs();
+    0x004D6D90 => add_overlay_iscript(*mut Image, u32, i32, i32, u32) -> *mut Image;
+    0x00485BD0 => send_command(@ecx *const c_void, @edx u32);
+    0x00477160 => ai_update_attack_target(@ecx *mut c_void, u32, u32, u32) -> u32;
+    0x004878F0 => update_visibility_point(@esi *mut c_void);
+    0x00488210 => create_lone_sprite(u32, i32, @edi i32, u32) -> *mut c_void;
+    0x004D74C0 => step_iscript(@ecx *mut c_void, *mut c_void, u32, *mut u32);
+    0x004D4DB0 => is_outside_game_screen(@ecx i32, @eax i32) -> u32;
+
+    0x004100C4 => SFileOpenFileEx(*mut c_void, *const u8, u32, *mut *mut c_void) -> u32;
+    0x00410142 => SFileGetFileSize(*mut c_void, *mut u32) -> u32;
+    0x004100B8 => SFileCloseFile(*mut c_void);
+    0x00410148 => SFileReadFile(*mut c_void, *mut u8, u32, *mut u32, u32) -> u32;
 );
 
 whack_funcs!(init_funcs_cdecl, 0x00400000,
@@ -34,11 +46,14 @@ whack_hooks!(stdcall, 0x00400000,
     0x004D0232 => LoadReady();
     0x0040FE11 => FseekFilePointerSet(@eax u32);
     0x004564E0 => GameScreenRClick(@ecx *const Event);
+    0x00497CE0 => DrawImage(@esi *mut Image);
+    0x0041A080 => RunDialog(@eax *mut c_void, *mut c_void);
 );
 
 whack_vars!(init_vars, 0x00400000,
     0x0057F0F0 => game: Game;
     0x0051CA14 => rng_seed: u32;
+    0x006D11C8 => rng_enabled: u32;
     0x006283EC => first_hidden_unit: *mut Unit;
     0x00628430 => first_active_unit: *mut Unit;
     0x0069A604 => ai_regions: [*mut AiRegion; 8];
@@ -52,7 +67,9 @@ whack_vars!(init_vars, 0x00400000,
     0x00597208 => client_selection: [*mut Unit; 0xc];
     0x0059CCA8 => units: [Unit; 0x6a4];
     0x0068C100 => first_ai_script: *mut c_void;
+    0x0068C0F8 => first_free_ai_script: *mut c_void;
     0x00685108 => guard_ais: [[*mut c_void; 0x2]; 0x8];
+    0x006D5BFC => pathing: *mut c_void;
 
     0x00513C30 => units_dat: [DatTable; 0x1];
     0x00513EC8 => orders_dat: [DatTable; 0x1];
@@ -70,15 +87,68 @@ whack_vars!(init_vars, 0x00400000,
     0x0046DE76 => tech_use_requirement_table: *const u16;
     0x0046DF96 => tech_research_requirement_table: *const u16;
     0x0046DD6D => order_requirement_table: *const u16;
+
+    0x0045CA0C => aiscript_default_switch_table: [u32; 0x71];
+    0x0045B892 => aiscript_switch_table_ptr: *mut u32;
+    0x004D835C => iscript_default_switch_table: [u32; 0x45];
+    0x004D750F => iscript_switch_table_ptr: *mut u32;
+
+    0x006AA050 => active_ai_towns: [AiTownList; 0x8];
+    0x006D1260 => map_tile_flags: *mut u32;
+    0x0057EEE0 => players: [Player; 0xc];
+    0x006D1200 => iscript_bin: *mut c_void;
+
+    0x00629288 => sprite_hlines_end: [*mut c_void; 0x100];
+    0x00629688 => sprite_hlines: [*mut c_void; 0x100];
+    0x0064DEC4 => first_active_bullet: *mut c_void;
+    0x00654874 => first_lone_sprite: *mut c_void;
+
+    0x005122A0 => campaigns: [*mut c_void; 6];
+    0x0062848C => screen_x: i32;
+    0x006284A8 => screen_y: i32;
+    0x00654868 => first_fow_sprite: *mut c_void;
+
+    0x00512684 => local_player_id: u32;
 );
+
+pub const AISCRIPT_OPCODE_CMP: usize = 0x0045B883;
+pub const AISCRIPT_SWITCH_TABLE: usize = 0x0045B892;
+pub const AISCRIPT_LOOP: usize = 0x0045B860;
+pub const AISCRIPT_RET: usize = 0x0045C9AA;
+pub const ISCRIPT_LOOP: usize = 0x004D74F4;
+pub const ISCRIPT_OPCODE_CMP: usize = 0x004D7504;
+pub const ISCRIPT_SWITCH_TABLE: usize = 0x004D750F;
 
 whack_funcs!(stdcall, init_funcs_storm, 0x15000000,
     0x150205D0 => SMemFree(*mut u8, *const u8, u32, u32);
 );
 
+whack_hooks!(stdcall, 0x15000000,
+    0x15017960 => SFileOpenFileEx_Hook(*mut c_void, *const u8, u32, *mut *mut c_void) -> u32;
+    0x15013F50 => SFileGetFileSize_Hook(*mut c_void, *mut u32) -> u32;
+    0x15016360 => SFileReadFile_Hook(*mut c_void, *mut u8, u32, *mut u32, *mut c_void) -> u32;
+    0x150152B0 => SFileCloseFile_Hook(*mut c_void);
+);
+
 pub struct Game;
 pub struct Unit;
 pub struct AiRegion;
+
+#[repr(C)]
+pub struct Image {
+    _data: [u8; 0x40],
+}
+
+#[repr(C)]
+pub struct AiTownList {
+    _data: [u8; 8],
+}
+
+#[repr(C)]
+pub struct Player {
+    _data: [u8; 0x24],
+}
+
 #[repr(C)]
 pub struct PlayerAi {
     _data: [u8; 0x4e8],
