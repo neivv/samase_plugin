@@ -1,4 +1,4 @@
-#![allow(non_upper_case_globals, non_camel_case_types)]
+#![allow(bad_style)]
 use libc::c_void;
 
 whack_funcs!(stdcall, init_funcs, 0x00400000,
@@ -10,6 +10,11 @@ whack_funcs!(stdcall, init_funcs, 0x00400000,
     0x00475000 => do_next_queued_order(@ecx *mut Unit);
     0x0048D1C0 => print_text(*const u8, @eax u32, u32);
     0x004DABD0 => init_mpqs();
+
+    0x004100C4 => SFileOpenFileEx(*mut c_void, *const u8, u32, *mut *mut c_void) -> u32;
+    0x00410142 => SFileGetFileSize(*mut c_void, *mut u32) -> u32;
+    0x004100B8 => SFileCloseFile(*mut c_void);
+    0x00410148 => SFileReadFile(*mut c_void, *mut u8, u32, *mut u32, u32) -> u32;
 );
 
 whack_funcs!(init_funcs_cdecl, 0x00400000,

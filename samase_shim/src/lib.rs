@@ -429,27 +429,46 @@ unsafe extern fn warn_unsupported_feature(feature: *const u8) {
     );
 }
 
+struct SFileHandle(*mut c_void);
+
+impl Drop for SFileHandle {
+    fn drop(&mut self) {
+        unsafe {
+            bw::SFileCloseFile(self.0);
+        }
+    }
+}
+
 unsafe extern fn read_file() -> unsafe extern fn(*const u8, *mut usize) -> *mut u8 {
     unsafe extern fn actual(path: *const u8, size: *mut usize) -> *mut u8 {
         let len = (0..).find(|&x| *path.offset(x) == 0).unwrap() as usize;
-        let mut buf = vec![0; len + 1];
+        let mut filename = vec![0; len + 1];
         for i in 0..len {
-            buf[i] = *path.offset(i as isize);
-            if buf[i] == b'/' {
-                buf[i] = b'\\';
+            filename[i] = *path.offset(i as isize);
+            if filename[i] == b'/' {
+                filename[i] = b'\\';
             }
         }
         bw::init_mpqs();
-        let data = bw::read_file(buf.as_ptr(), 0, 0, b"\0".as_ptr(), 0, 0, size);
-        if data == null_mut() {
-            null_mut()
-        } else {
-            let buf = HeapAlloc(GetProcessHeap(), 0, *size) as *mut u8;
-            let buf_slice = slice::from_raw_parts_mut(buf, *size);
-            buf_slice.copy_from_slice(slice::from_raw_parts(data, *size));
-            bw::SMemFree(data, b"\0".as_ptr(), 0, 0);
-            buf
+        let mut handle = null_mut();
+        let success = bw::SFileOpenFileEx(null_mut(), filename.as_ptr(), 0, &mut handle);
+        if success == 0 || handle.is_null() {
+            return null_mut();
         }
+        let handle = SFileHandle(handle);
+        let mut high = 0;
+        let file_size = bw::SFileGetFileSize(handle.0, &mut high);
+        if high > 0 || file_size == 0 {
+            return null_mut();
+        }
+        let buf = HeapAlloc(GetProcessHeap(), 0, file_size as usize) as *mut u8;
+        let mut read = 0;
+        let success = bw::SFileReadFile(handle.0, buf, file_size, &mut read, 0);
+        if success == 0 {
+            return null_mut();
+        }
+        *size = file_size as usize;
+        buf
     }
     actual
 }
