@@ -1,10 +1,10 @@
 use std::cell::RefCell;
 use std::mem;
 use std::slice;
-use std::sync::{Mutex, RwLock};
 
 use libc::c_void;
 use thread_local::CachedThreadLocal;
+use parking_lot::{Mutex, RwLock};
 
 // data, len, game player, unique player, orig
 pub type IngameCommandHook =
@@ -43,8 +43,8 @@ pub unsafe extern fn ingame_hook(
     orig: unsafe extern fn(*const c_void, u32, u32),
 ) {
     let data = slice::from_raw_parts(data as *const u8, len as usize);
-    let hooks = INGAME_HOOKS.read().unwrap();
-    let cmd_lengths = COMMAND_LENGTHS.read().unwrap();
+    let hooks = INGAME_HOOKS.read();
+    let cmd_lengths = COMMAND_LENGTHS.read();
     let mut pos = data;
     while pos.len() > 0 {
         let skip = globals.is_replay != 0 && replayed_command == 0 && !is_replay_command(pos[0]);
@@ -171,7 +171,7 @@ unsafe fn command_len(overrides: &[(u8, CommandLength)], cmd: &[u8]) -> usize {
             cmd.get(1).cloned().unwrap_or(12) as usize * 4 + 2
         }
         _ => {
-            DEFAULT_COMMAND_LENGTHS.lock().unwrap().get(id as usize).cloned()
+            DEFAULT_COMMAND_LENGTHS.lock().get(id as usize).cloned()
                 .unwrap_or(!0) as usize
         }
     }
@@ -183,13 +183,13 @@ pub fn set_default_command_lengths(mut lengths: Vec<u32>) {
         // it's not replay skipped
         *sync = 7;
     }
-    *DEFAULT_COMMAND_LENGTHS.lock().unwrap() = lengths;
+    *DEFAULT_COMMAND_LENGTHS.lock() = lengths;
 }
 
 pub fn add_ingame_hook(cmd: u8, hook: IngameCommandHook) {
-    INGAME_HOOKS.write().unwrap().push((cmd, hook));
+    INGAME_HOOKS.write().push((cmd, hook));
 }
 
 pub fn add_length_override(cmd: u8, fun: CommandLength) {
-    COMMAND_LENGTHS.write().unwrap().push((cmd, fun));
+    COMMAND_LENGTHS.write().push((cmd, fun));
 }

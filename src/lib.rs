@@ -4,6 +4,7 @@ extern crate flate2;
 #[macro_use] extern crate lazy_static;
 extern crate libc;
 #[macro_use] extern crate log;
+extern crate parking_lot;
 #[macro_use] extern crate quick_error;
 #[macro_use] extern crate serde_derive;
 extern crate thread_local;

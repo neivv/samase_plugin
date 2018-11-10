@@ -1,6 +1,7 @@
 extern crate byteorder;
 #[macro_use] extern crate lazy_static;
 extern crate libc;
+extern crate parking_lot;
 extern crate thread_local;
 #[macro_use] extern crate whack;
 extern crate winapi;
@@ -13,11 +14,12 @@ use std::io::{self, Write};
 use std::mem;
 use std::ptr::{null, null_mut};
 use std::slice;
-use std::sync::{Mutex, Once, ONCE_INIT};
+use std::sync::{Once, ONCE_INIT};
 
 use byteorder::{WriteBytesExt, LE};
 use libc::c_void;
 use thread_local::CachedThreadLocal;
+use parking_lot::Mutex;
 use winapi::um::heapapi::{GetProcessHeap, HeapAlloc, HeapCreate, HeapFree};
 use winapi::um::winnt::{HANDLE, HEAP_CREATE_ENABLE_EXECUTE};
 
@@ -313,12 +315,12 @@ impl Drop for Context {
                 exe.replace(addr, &data);
             }
         }
-        let first_file_hooks = FIRST_FILE_ACCESS_HOOKS.lock().unwrap();
+        let first_file_hooks = FIRST_FILE_ACCESS_HOOKS.lock();
         if !first_file_hooks.is_empty() {
             unsafe fn call_hooks() {
                 static ONCE: Once = ONCE_INIT;
                 ONCE.call_once(|| {
-                    let first_file_hooks = FIRST_FILE_ACCESS_HOOKS.lock().unwrap();
+                    let first_file_hooks = FIRST_FILE_ACCESS_HOOKS.lock();
                     for hook in &*first_file_hooks {
                         hook();
                     }
@@ -642,7 +644,7 @@ unsafe extern fn print_text() -> Option<unsafe extern fn(*const u8)> {
 }
 
 unsafe extern fn hook_on_first_file_access(hook: unsafe extern fn()) {
-    FIRST_FILE_ACCESS_HOOKS.lock().unwrap().push(hook);
+    FIRST_FILE_ACCESS_HOOKS.lock().push(hook);
 }
 
 unsafe extern fn hook_step_order(
