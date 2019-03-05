@@ -349,7 +349,7 @@ pub fn init_1161() -> Context {
     unsafe {
         assert!(CONTEXT.get().is_none());
         let api = PluginApi {
-            version: 10,
+            version: 11,
             padding: 0,
             free_memory,
             write_exe_memory,
@@ -389,6 +389,7 @@ pub fn init_1161() -> Context {
             first_free_ai_script,
             set_first_free_ai_script,
             player_ai_towns,
+            map_tile_flags,
         };
         let mut patcher = PATCHER.lock().unwrap();
         {
@@ -611,6 +612,13 @@ unsafe extern fn first_guard_ai() -> Option<unsafe extern fn() -> *mut c_void> {
 unsafe extern fn pathing() -> Option<unsafe extern fn() -> *mut c_void> {
     unsafe extern fn actual() -> *mut c_void {
         *bw::pathing
+    }
+    Some(actual)
+}
+
+unsafe extern fn map_tile_flags() -> Option<unsafe extern fn() -> *mut u32> {
+    unsafe extern fn actual() -> *mut u32 {
+        *bw::map_tile_flags
     }
     Some(actual)
 }

@@ -82,6 +82,7 @@ whack_vars!(init_vars, 0x00400000,
     0x0045B892 => aiscript_switch_table_ptr: *mut u32;
 
     0x006AA050 => active_ai_towns: [AiTownList; 0x8];
+    0x006D1260 => map_tile_flags: *mut u32;
 );
 
 pub const AISCRIPT_OPCODE_CMP: usize = 0x0045B883;
