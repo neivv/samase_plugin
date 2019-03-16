@@ -44,6 +44,7 @@ whack_hooks!(stdcall, 0x00400000,
 whack_vars!(init_vars, 0x00400000,
     0x0057F0F0 => game: Game;
     0x0051CA14 => rng_seed: u32;
+    0x006D11C8 => rng_enabled: u32;
     0x006283EC => first_hidden_unit: *mut Unit;
     0x00628430 => first_active_unit: *mut Unit;
     0x0069A604 => ai_regions: [*mut AiRegion; 8];
