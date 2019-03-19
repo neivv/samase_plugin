@@ -178,15 +178,15 @@ impl Drop for Context {
             for (hook, after) in ctx.step_objects {
                 exe.hook_closure(bw::StepObjects, move |orig: &Fn()| {
                     if after == 0 {
-                        *bw::enable_rng = 1;
+                        *bw::rng_enabled = 1;
                         hook();
-                        *bw::enable_rng = 0;
+                        *bw::rng_enabled = 0;
                         orig();
                     } else {
                         orig();
-                        *bw::enable_rng = 1;
+                        *bw::rng_enabled = 1;
                         hook();
-                        *bw::enable_rng = 0;
+                        *bw::rng_enabled = 0;
                     }
                 });
             }
