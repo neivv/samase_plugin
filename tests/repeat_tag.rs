@@ -1,5 +1,5 @@
 extern crate byteorder;
-extern crate plugin_support;
+extern crate samase_plugin;
 
 use std::fs;
 use std::io::{self, Cursor, Read, Seek};
@@ -7,7 +7,7 @@ use std::slice;
 
 use byteorder::{ReadBytesExt, LE};
 
-use plugin_support::save;
+use samase_plugin::save;
 
 static mut STATE: u32 = 0;
 

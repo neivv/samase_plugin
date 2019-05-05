@@ -1,8 +1,8 @@
-extern crate plugin_support;
+extern crate samase_plugin;
 extern crate libc;
 
 use libc::c_void;
-use plugin_support::commands;
+use samase_plugin::commands;
 
 #[test]
 fn cmds() {
