@@ -75,4 +75,8 @@ pub struct PluginApi {
     pub player_ai_towns: unsafe extern fn() -> Option<unsafe extern fn() -> *mut c_void>,
     pub map_tile_flags: unsafe extern fn() -> Option<unsafe extern fn() -> *mut u32>,
     pub players: unsafe extern fn() -> Option<unsafe extern fn() -> *mut c_void>,
+    pub hook_draw_image: unsafe extern fn(
+        unsafe extern fn(*mut c_void, unsafe extern fn(*mut c_void))
+    ) -> u32,
+    pub hook_renderer: unsafe extern fn(u32, unsafe extern fn()) -> u32,
 }

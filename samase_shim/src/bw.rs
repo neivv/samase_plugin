@@ -39,6 +39,7 @@ whack_hooks!(stdcall, 0x00400000,
     0x004D0232 => LoadReady();
     0x0040FE11 => FseekFilePointerSet(@eax u32);
     0x004564E0 => GameScreenRClick(@ecx *const Event);
+    0x00497CE0 => DrawImage(@esi *mut Image);
 );
 
 whack_vars!(init_vars, 0x00400000,
@@ -99,6 +100,11 @@ whack_funcs!(stdcall, init_funcs_storm, 0x15000000,
 pub struct Game;
 pub struct Unit;
 pub struct AiRegion;
+
+#[repr(C)]
+pub struct Image {
+    _data: [u8; 0x40],
+}
 
 #[repr(C)]
 pub struct AiTownList {

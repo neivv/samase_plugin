@@ -66,6 +66,7 @@ struct InternalContext {
     send_command: Vec<unsafe extern fn(*mut c_void, u32, unsafe extern fn(*mut c_void, u32))>,
     step_secondary_order: Vec<unsafe extern fn(*mut c_void, unsafe extern fn(*mut c_void))>,
     game_screen_rclick: Vec<unsafe extern fn(*mut c_void, unsafe extern fn(*mut c_void))>,
+    draw_image: Vec<unsafe extern fn(*mut c_void, unsafe extern fn(*mut c_void))>,
     aiscript_hooks: Vec<(u8, unsafe extern fn(*mut c_void))>,
     save_extensions_used: bool,
 }
@@ -286,6 +287,18 @@ impl Drop for Context {
                     hook(&mut converted as *mut bw::scr::Event as *mut c_void, call_orig);
                 });
             }
+            for hook in ctx.draw_image {
+                exe.hook_closure(bw::DrawImage, move |image, orig: &Fn(_)| {
+                    static mut ORIG: FnTraitGlobal<*const Fn(*mut bw::Image)> =
+                        FnTraitGlobal::NotSet;
+                    ORIG.set(mem::transmute(orig));
+                    unsafe extern fn call_orig(image: *mut c_void) {
+                        let orig = ORIG.get();
+                        (*orig)(image as *mut bw::Image)
+                    }
+                    hook(image as *mut c_void, call_orig);
+                });
+            }
             apply_aiscript_hooks(&mut exe, &ctx.aiscript_hooks);
             if ctx.save_extensions_used {
                 unsafe fn save_hook(file: *mut c_void) {
@@ -353,7 +366,7 @@ pub fn init_1161() -> Context {
     unsafe {
         assert!(CONTEXT.get().is_none());
         let api = PluginApi {
-            version: 12,
+            version: 13,
             padding: 0,
             free_memory,
             write_exe_memory,
@@ -395,6 +408,8 @@ pub fn init_1161() -> Context {
             player_ai_towns,
             map_tile_flags,
             players,
+            hook_draw_image,
+            hook_renderer,
         };
         let mut patcher = PATCHER.lock().unwrap();
         {
@@ -752,6 +767,20 @@ unsafe extern fn hook_game_screen_rclick(
 ) -> u32 {
     context().game_screen_rclick.push(hook);
     1
+}
+
+unsafe extern fn hook_draw_image(
+    hook: unsafe extern fn(*mut c_void, unsafe extern fn(*mut c_void)),
+) -> u32 {
+    context().draw_image.push(hook);
+    1
+}
+
+unsafe extern fn hook_renderer(
+    _type: u32,
+    _hook: unsafe extern fn(),
+) -> u32 {
+    0
 }
 
 unsafe extern fn extend_save(
