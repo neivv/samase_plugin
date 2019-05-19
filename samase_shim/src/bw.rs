@@ -82,16 +82,23 @@ whack_vars!(init_vars, 0x00400000,
 
     0x0045CA0C => aiscript_default_switch_table: [u32; 0x71];
     0x0045B892 => aiscript_switch_table_ptr: *mut u32;
+    0x004D835C => iscript_default_switch_table: [u32; 0x45];
+    0x004D750F => iscript_switch_table_ptr: *mut u32;
 
     0x006AA050 => active_ai_towns: [AiTownList; 0x8];
     0x006D1260 => map_tile_flags: *mut u32;
     0x0057EEE0 => players: [Player; 0xc];
+    0x006D1200 => iscript_bin: *mut c_void;
 );
 
 pub const AISCRIPT_OPCODE_CMP: usize = 0x0045B883;
 pub const AISCRIPT_SWITCH_TABLE: usize = 0x0045B892;
 pub const AISCRIPT_LOOP: usize = 0x0045B860;
 pub const AISCRIPT_RET: usize = 0x0045C9AA;
+pub const ISCRIPT_RET: usize = 0x004D762B;
+pub const ISCRIPT_LOOP: usize = 0x004D74F4;
+pub const ISCRIPT_OPCODE_CMP: usize = 0x004D7504;
+pub const ISCRIPT_SWITCH_TABLE: usize = 0x004D750F;
 
 whack_funcs!(stdcall, init_funcs_storm, 0x15000000,
     0x150205D0 => SMemFree(*mut u8, *const u8, u32, u32);

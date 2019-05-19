@@ -68,6 +68,9 @@ struct InternalContext {
     game_screen_rclick: Vec<unsafe extern fn(*mut c_void, unsafe extern fn(*mut c_void))>,
     draw_image: Vec<unsafe extern fn(*mut c_void, unsafe extern fn(*mut c_void))>,
     aiscript_hooks: Vec<(u8, unsafe extern fn(*mut c_void))>,
+    iscript_hooks: Vec<
+        (u8, unsafe extern fn(*mut c_void, *mut c_void, *mut c_void, u32, *mut u32))
+    >,
     save_extensions_used: bool,
 }
 
@@ -300,6 +303,7 @@ impl Drop for Context {
                 });
             }
             apply_aiscript_hooks(&mut exe, &ctx.aiscript_hooks);
+            apply_iscript_hooks(&mut exe, &ctx.iscript_hooks);
             if ctx.save_extensions_used {
                 unsafe fn save_hook(file: *mut c_void) {
                     // TODO ?
@@ -366,7 +370,7 @@ pub fn init_1161() -> Context {
     unsafe {
         assert!(CONTEXT.get().is_none());
         let api = PluginApi {
-            version: 13,
+            version: 14,
             padding: 0,
             free_memory,
             write_exe_memory,
@@ -410,6 +414,9 @@ pub fn init_1161() -> Context {
             players,
             hook_draw_image,
             hook_renderer,
+            get_iscript_bin,
+            set_iscript_bin,
+            hook_iscript_opcode,
         };
         let mut patcher = PATCHER.lock().unwrap();
         {
@@ -783,6 +790,32 @@ unsafe extern fn hook_renderer(
     0
 }
 
+unsafe extern fn get_iscript_bin() -> Option<unsafe extern fn() -> *mut c_void> {
+    unsafe extern fn actual() -> *mut c_void {
+        *bw::iscript_bin
+    }
+    Some(actual)
+}
+
+unsafe extern fn set_iscript_bin() -> Option<unsafe extern fn(*mut c_void)> {
+    unsafe extern fn actual(value: *mut c_void) {
+        *bw::iscript_bin = value
+    }
+    Some(actual)
+}
+
+unsafe extern fn hook_iscript_opcode(
+    opcode: u32,
+    hook: unsafe extern fn(*mut c_void, *mut c_void, *mut c_void, u32, *mut u32),
+) -> u32 {
+    if opcode < 0x100 {
+        context().iscript_hooks.push((opcode as u8, hook));
+        1
+    } else {
+        0
+    }
+}
+
 unsafe extern fn extend_save(
     tag: *const u8,
     save: SaveHook,
@@ -929,4 +962,87 @@ unsafe fn apply_aiscript_hooks(
     (&mut switch_table_ptr[..]).write_u32::<LE>(switch_table.as_ptr() as u32).unwrap();
     mem::forget(switch_table);
     exe.replace(bw::AISCRIPT_SWITCH_TABLE, &switch_table_ptr);
+}
+
+unsafe fn apply_iscript_hooks(
+    exe: &mut whack::ModulePatcher,
+    hooks: &[(u8, unsafe extern fn(*mut c_void, *mut c_void, *mut c_void, u32, *mut u32))]
+) {
+    if hooks.is_empty() {
+        return;
+    }
+    // Going to set last as !0 so other plugins using this same shim can use it
+    // to count patched switch table length
+    let unpatched_switch_table =
+        *bw::iscript_switch_table_ptr == bw::iscript_default_switch_table.as_mut_ptr();
+    let old_opcode_count = if unpatched_switch_table {
+        0x45
+    } else {
+        let switch_table = *bw::iscript_switch_table_ptr;
+        (0u32..).find(|&x| *switch_table.offset(x as isize) == !0).unwrap()
+    };
+    let opcode_count =
+        hooks.iter().map(|x| x.0 as u32 + 1).max().unwrap_or(0).max(old_opcode_count);
+    let mut switch_table = vec![0; opcode_count as usize + 2];
+    switch_table[opcode_count as usize + 1] = !0;
+    for i in 0..old_opcode_count {
+        let old_switch_table = *bw::iscript_switch_table_ptr;
+        switch_table[i as usize] = *old_switch_table.offset(i as isize);
+    }
+
+    let mut asm_offsets = Vec::with_capacity(hooks.len());
+    let mut asm = Vec::new();
+    for &(opcode, fun) in hooks {
+        asm_offsets.push((opcode, asm.len()));
+        asm.write_all(&[
+            0x60, // pushad
+            0xff, 0x75, 0x10, // push [ebp + c] (out_speed)
+            0xff, 0x75, 0x0c, // push [ebp + c] (dry run)
+            0x56, // push esi (image)
+            0xff, 0x75, 0x08, // push [ebp + 8] (iscript struct)
+            0x57, // push edi (iscript_bin)
+            0xb8, // mov eax, ...
+        ]).unwrap();
+        asm.write_u32::<LE>(mem::transmute(fun)).unwrap();
+        asm.write_all(&[
+            0xff, 0xd0, // call eax
+            0x83, 0xc4, 0x14, // add esp, 14
+            0x8b, 0x4d, 0x08, // mov ecx, [ebp + 8] (restore iscript struct)
+            0x8a, 0x51, 0x07, // mov dl, byte [ecx + 7] (script wait, must be dl, see ISCRIPT_RET)
+            0xfe, 0xca, // dec dl
+            0x31, 0xdb, // xor ebx, ebx
+            0x4b, // dec ebx
+            0x38, 0xda, // cmp cl, dl
+            0x74, 0x0d, // je wait not set
+            0x61, // popad
+            0xc7, 0x44, 0xe4, 0xfc, // Mov [esp - 4], dword ...
+        ]).unwrap();
+        // This writes dl to iscript.wait
+        asm.write_u32::<LE>(bw::ISCRIPT_RET as u32).unwrap();
+        // jmp dword [esp - 4]
+        asm.write_all(&[0xff, 0x64, 0xe4, 0xfc]).unwrap();
+        // wait not set
+        asm.write_all(&[
+            0xa1, 0x00, 0x12, 0x6d, 0x00, // mov eax [6d1200] (iscript_bin)
+            0x0f, 0xb7, 0x79, 0x02, // movzx edi word [ecx + 2] (script pos)
+            0x03, 0xf8, // add edi, eax
+            0x89, 0x7d, 0xf8, // mov [ebp - 8], edi
+            0x61, // popad
+            0xc7, 0x44, 0xe4, 0xfc, // Mov [esp - 4], dword ...
+        ]).unwrap();
+        asm.write_u32::<LE>(bw::ISCRIPT_LOOP as u32).unwrap();
+        // jmp dword [esp - 4]
+        asm.write_all(&[0xff, 0x64, 0xe4, 0xfc]).unwrap();
+    }
+    let exec_asm = exec_alloc(asm.len());
+    std::ptr::copy_nonoverlapping(asm.as_ptr(), exec_asm, asm.len());
+    for (opcode, offset) in asm_offsets {
+        switch_table[opcode as usize] = exec_asm as u32 + offset as u32;
+    }
+
+    let opcode_count_patch = [0x90, 0x3c, opcode_count as u8];
+    exe.replace(bw::ISCRIPT_OPCODE_CMP, &opcode_count_patch);
+    let switch_table_ptr = switch_table.as_ptr() as u32;
+    mem::forget(switch_table);
+    exe.replace_val(bw::ISCRIPT_SWITCH_TABLE, switch_table_ptr);
 }

@@ -79,4 +79,10 @@ pub struct PluginApi {
         unsafe extern fn(*mut c_void, unsafe extern fn(*mut c_void))
     ) -> u32,
     pub hook_renderer: unsafe extern fn(u32, unsafe extern fn()) -> u32,
+    pub get_iscript_bin: unsafe extern fn() -> Option<unsafe extern fn() -> *mut c_void>,
+    pub set_iscript_bin: unsafe extern fn() -> Option<unsafe extern fn(*mut c_void)>,
+    pub hook_iscript_opcode: unsafe extern fn(
+        // Iscript pos, iscript ptr, image ptr, dry_run, speed_out, return new pos
+        u32, unsafe extern fn(*mut c_void, *mut c_void, *mut c_void, u32, *mut u32),
+    ) -> u32,
 }
