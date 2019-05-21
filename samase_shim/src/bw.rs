@@ -89,6 +89,9 @@ whack_vars!(init_vars, 0x00400000,
     0x006D1260 => map_tile_flags: *mut u32;
     0x0057EEE0 => players: [Player; 0xc];
     0x006D1200 => iscript_bin: *mut c_void;
+
+    0x00629288 => sprite_hlines_end: [*mut c_void; 0x100];
+    0x00629688 => sprite_hlines: [*mut c_void; 0x100];
 );
 
 pub const AISCRIPT_OPCODE_CMP: usize = 0x0045B883;
@@ -102,6 +105,13 @@ pub const ISCRIPT_SWITCH_TABLE: usize = 0x004D750F;
 
 whack_funcs!(stdcall, init_funcs_storm, 0x15000000,
     0x150205D0 => SMemFree(*mut u8, *const u8, u32, u32);
+);
+
+whack_hooks!(stdcall, 0x15000000,
+    0x15017960 => SFileOpenFileEx_Hook(*mut c_void, *const u8, u32, *mut *mut c_void) -> u32;
+    0x15013F50 => SFileGetFileSize_Hook(*mut c_void, *mut u32) -> u32;
+    0x15016360 => SFileReadFile_Hook(*mut c_void, *mut u8, u32, *mut u32, *mut c_void) -> u32;
+    0x150152B0 => SFileCloseFile_Hook(*mut c_void);
 );
 
 pub struct Game;

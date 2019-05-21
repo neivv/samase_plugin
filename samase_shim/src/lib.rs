@@ -15,11 +15,12 @@ use std::mem;
 use std::ptr::{null, null_mut};
 use std::slice;
 use std::sync::{Once, ONCE_INIT};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use byteorder::{WriteBytesExt, LE};
 use libc::c_void;
 use thread_local::CachedThreadLocal;
-use parking_lot::Mutex;
+use parking_lot::{Mutex, RwLock};
 use winapi::um::heapapi::{GetProcessHeap, HeapAlloc, HeapCreate, HeapFree};
 use winapi::um::winnt::{HANDLE, HEAP_CREATE_ENABLE_EXECUTE};
 
@@ -39,8 +40,39 @@ lazy_static! {
     static ref CONTEXT:
         CachedThreadLocal<RefCell<Option<InternalContext>>> = CachedThreadLocal::new();
     static ref FIRST_FILE_ACCESS_HOOKS: Mutex<Vec<unsafe extern fn()>> = Mutex::new(Vec::new());
+    static ref FILE_READ_HOOKS: RwLock<Vec<FileReadHook>> = RwLock::new(Vec::new());
+    static ref OPEN_HOOKED_FILES: Mutex<Vec<HeapFreeOnDropPtr>> = Mutex::new(Vec::new());
     static ref LAST_FILE_POINTER: CachedThreadLocal<Cell<u64>> = CachedThreadLocal::new();
 }
+
+static HAS_HOOKED_FILES_OPEN: AtomicBool = AtomicBool::new(false);
+
+struct FileReadHook {
+    prefix: Vec<u8>,
+    hook: unsafe extern fn(*const u8, *mut u32) -> *mut u8,
+    being_called: CachedThreadLocal<Cell<bool>>,
+}
+
+impl FileReadHook {
+    unsafe fn matches(&self, filename: *const u8) -> bool {
+        (0..self.prefix.len()).all(|x| self.prefix[x].eq_ignore_ascii_case(&*filename.add(x)))
+    }
+}
+
+struct HeapFreeOnDrop(*mut u8, u32);
+#[derive(Copy, Clone)]
+struct HeapFreeOnDropPtr(*mut HeapFreeOnDrop);
+
+impl std::ops::Drop for HeapFreeOnDrop {
+    fn drop(&mut self) {
+        unsafe {
+            HeapFree(GetProcessHeap(), 0, self.0 as *mut _);
+        }
+    }
+}
+
+unsafe impl Send for HeapFreeOnDropPtr {}
+unsafe impl Sync for HeapFreeOnDropPtr {}
 
 unsafe fn exec_alloc(size: usize) -> *mut u8 {
     HeapAlloc(*EXEC_HEAP as HANDLE, 0, size) as *mut u8
@@ -351,6 +383,125 @@ impl Drop for Context {
                 exe.call_hook(bw::FirstFileAccess, call_hooks);
             }
         }
+        drop(exe);
+        let file_read_hooks = FILE_READ_HOOKS.read();
+        if !file_read_hooks.is_empty() {
+            unsafe fn open_hook(
+                archive: *mut c_void,
+                filename: *const u8,
+                flags: u32,
+                out: *mut *mut c_void,
+                orig: &Fn(*mut c_void, *const u8, u32, *mut *mut c_void) -> u32,
+            ) -> u32 {
+                let hooks = FILE_READ_HOOKS.read();
+                let mut result = None;
+                let mut any_called = false;
+                let mut already_calling = false;
+                for i in 0..hooks.len() {
+                    let hook = &hooks[i];
+                    if hook.matches(filename) {
+                        let call_marker = hook.being_called.get_or(|| Box::new(Cell::new(false)));
+                        if call_marker.get() == false {
+                            any_called = true;
+                            call_marker.set(true);
+                            let mut size = 0u32;
+                            let file = (hook.hook)(filename, &mut size);
+                            if file != null_mut() {
+                                result = Some(Box::new(HeapFreeOnDrop(file, size)));
+                                break;
+                            }
+                        } else {
+                            already_calling = true;
+                        }
+                    }
+                }
+                if any_called && !already_calling {
+                    for hook in &*hooks {
+                        let call_marker = hook.being_called.get_or(|| Box::new(Cell::new(false)));
+                        call_marker.set(false);
+                    }
+                }
+                if let Some(result) = result {
+                    let raw = HeapFreeOnDropPtr(Box::into_raw(result));
+                    let mut open_files = OPEN_HOOKED_FILES.lock();
+                    HAS_HOOKED_FILES_OPEN.store(true, Ordering::Relaxed);
+                    open_files.push(raw);
+                    *out = raw.0 as *mut c_void;
+                    1
+                } else {
+                    orig(archive, filename, flags, out)
+                }
+            }
+
+            unsafe fn size_hook(
+                file: *mut c_void,
+                out_high: *mut u32,
+                orig: &Fn(*mut c_void, *mut u32) -> u32,
+            ) -> u32 {
+                if HAS_HOOKED_FILES_OPEN.load(Ordering::Relaxed) {
+                    let files = OPEN_HOOKED_FILES.lock();
+                    for hooked in &*files {
+                        if file == hooked.0 as *mut c_void {
+                            if !out_high.is_null() {
+                                *out_high = 0;
+                            }
+                            return (*hooked.0).1;
+                        }
+                    }
+                }
+                orig(file, out_high)
+            }
+
+            unsafe fn read_hook(
+                file: *mut c_void,
+                out: *mut u8,
+                len: u32,
+                out_len: *mut u32,
+                overlapped: *mut c_void,
+                orig: &Fn(*mut c_void, *mut u8, u32, *mut u32, *mut c_void) -> u32,
+            ) -> u32 {
+                if HAS_HOOKED_FILES_OPEN.load(Ordering::Relaxed) {
+                    let files = OPEN_HOOKED_FILES.lock();
+                    for hooked in &*files {
+                        if file == hooked.0 as *mut c_void {
+                            assert!(overlapped.is_null());
+                            let len = ((*hooked.0).1).min(len);
+                            std::ptr::copy_nonoverlapping((*hooked.0).0, out, len as usize);
+                            *out_len = len;
+                            return 1;
+                        }
+                    }
+                }
+                orig(file, out, len, out_len, overlapped)
+            }
+
+            unsafe fn close_hook(
+                file: *mut c_void,
+                orig: &Fn(*mut c_void),
+            ) {
+                if HAS_HOOKED_FILES_OPEN.load(Ordering::Relaxed) {
+                    let mut files = OPEN_HOOKED_FILES.lock();
+                    for i in 0..files.len() {
+                        if files[i].0 as *mut c_void == file {
+                            Box::from_raw(files[i].0);
+                            files.remove(i);
+                            if files.is_empty() {
+                                HAS_HOOKED_FILES_OPEN.store(false, Ordering::Relaxed);
+                            }
+                            return;
+                        }
+                    }
+                }
+                orig(file)
+            }
+            unsafe {
+                let mut storm = patcher.patch_library("storm", 0x15000000);
+                storm.hook_opt(bw::SFileOpenFileEx_Hook, open_hook);
+                storm.hook_opt(bw::SFileGetFileSize_Hook, size_hook);
+                storm.hook_opt(bw::SFileReadFile_Hook, read_hook);
+                storm.hook_opt(bw::SFileCloseFile_Hook, close_hook);
+            }
+        }
     }
 }
 
@@ -370,7 +521,7 @@ pub fn init_1161() -> Context {
     unsafe {
         assert!(CONTEXT.get().is_none());
         let api = PluginApi {
-            version: 14,
+            version: 15,
             padding: 0,
             free_memory,
             write_exe_memory,
@@ -417,6 +568,9 @@ pub fn init_1161() -> Context {
             get_iscript_bin,
             set_iscript_bin,
             hook_iscript_opcode,
+            sprite_hlines,
+            sprite_hlines_end,
+            hook_file_read,
         };
         let mut patcher = PATCHER.lock().unwrap();
         {
@@ -814,6 +968,32 @@ unsafe extern fn hook_iscript_opcode(
     } else {
         0
     }
+}
+
+unsafe extern fn sprite_hlines() -> Option<unsafe extern fn() -> *mut *mut c_void> {
+    unsafe extern fn actual() -> *mut *mut c_void {
+        &mut bw::sprite_hlines[0] as *mut *mut c_void
+    }
+    Some(actual)
+}
+
+unsafe extern fn sprite_hlines_end() -> Option<unsafe extern fn() -> *mut *mut c_void> {
+    unsafe extern fn actual() -> *mut *mut c_void {
+        &mut bw::sprite_hlines_end[0] as *mut *mut c_void
+    }
+    Some(actual)
+}
+
+unsafe extern fn hook_file_read(
+    prefix: *const u8,
+    hook: unsafe extern fn(*const u8, *mut u32) -> *mut u8,
+) {
+    let prefix = CStr::from_ptr(prefix as *const i8).to_bytes().into();
+    FILE_READ_HOOKS.write().push(FileReadHook {
+        prefix,
+        hook,
+        being_called: CachedThreadLocal::new(),
+    });
 }
 
 unsafe extern fn extend_save(
