@@ -89,4 +89,6 @@ pub struct PluginApi {
     pub sprite_hlines_end: unsafe extern fn() -> Option<unsafe extern fn() -> *mut *mut c_void>,
     pub hook_file_read:
         unsafe extern fn(*const u8, unsafe extern fn(*const u8, *mut u32) -> *mut u8),
+    pub first_active_bullet: unsafe extern fn() -> Option<unsafe extern fn() -> *mut c_void>,
+    pub first_lone_sprite: unsafe extern fn() -> Option<unsafe extern fn() -> *mut c_void>,
 }

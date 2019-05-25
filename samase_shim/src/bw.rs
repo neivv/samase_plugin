@@ -92,6 +92,8 @@ whack_vars!(init_vars, 0x00400000,
 
     0x00629288 => sprite_hlines_end: [*mut c_void; 0x100];
     0x00629688 => sprite_hlines: [*mut c_void; 0x100];
+    0x0064DEC4 => first_active_bullet: *mut c_void;
+    0x00654874 => first_lone_sprite: *mut c_void;
 );
 
 pub const AISCRIPT_OPCODE_CMP: usize = 0x0045B883;

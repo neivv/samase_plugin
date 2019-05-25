@@ -521,7 +521,7 @@ pub fn init_1161() -> Context {
     unsafe {
         assert!(CONTEXT.get().is_none());
         let api = PluginApi {
-            version: 15,
+            version: 16,
             padding: 0,
             free_memory,
             write_exe_memory,
@@ -571,6 +571,8 @@ pub fn init_1161() -> Context {
             sprite_hlines,
             sprite_hlines_end,
             hook_file_read,
+            first_active_bullet,
+            first_lone_sprite,
         };
         let mut patcher = PATCHER.lock().unwrap();
         {
@@ -980,6 +982,20 @@ unsafe extern fn sprite_hlines() -> Option<unsafe extern fn() -> *mut *mut c_voi
 unsafe extern fn sprite_hlines_end() -> Option<unsafe extern fn() -> *mut *mut c_void> {
     unsafe extern fn actual() -> *mut *mut c_void {
         &mut bw::sprite_hlines_end[0] as *mut *mut c_void
+    }
+    Some(actual)
+}
+
+unsafe extern fn first_active_bullet() -> Option<unsafe extern fn() -> *mut c_void> {
+    unsafe extern fn actual() -> *mut c_void {
+        *bw::first_active_bullet
+    }
+    Some(actual)
+}
+
+unsafe extern fn first_lone_sprite() -> Option<unsafe extern fn() -> *mut c_void> {
+    unsafe extern fn actual() -> *mut c_void {
+        *bw::first_lone_sprite
     }
     Some(actual)
 }
