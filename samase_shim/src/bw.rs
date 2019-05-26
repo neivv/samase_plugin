@@ -100,7 +100,6 @@ pub const AISCRIPT_OPCODE_CMP: usize = 0x0045B883;
 pub const AISCRIPT_SWITCH_TABLE: usize = 0x0045B892;
 pub const AISCRIPT_LOOP: usize = 0x0045B860;
 pub const AISCRIPT_RET: usize = 0x0045C9AA;
-pub const ISCRIPT_RET: usize = 0x004D762B;
 pub const ISCRIPT_LOOP: usize = 0x004D74F4;
 pub const ISCRIPT_OPCODE_CMP: usize = 0x004D7504;
 pub const ISCRIPT_SWITCH_TABLE: usize = 0x004D750F;

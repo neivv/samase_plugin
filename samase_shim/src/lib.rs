@@ -1204,21 +1204,21 @@ unsafe fn apply_iscript_hooks(
             0xff, 0xd0, // call eax
             0x83, 0xc4, 0x14, // add esp, 14
             0x8b, 0x4d, 0x08, // mov ecx, [ebp + 8] (restore iscript struct)
-            0x8a, 0x51, 0x07, // mov dl, byte [ecx + 7] (script wait, must be dl, see ISCRIPT_RET)
+            0x8a, 0x51, 0x07, // mov dl, byte [ecx + 7] (script wait)
             0xfe, 0xca, // dec dl
             0x31, 0xdb, // xor ebx, ebx
             0x4b, // dec ebx
-            0x38, 0xda, // cmp cl, dl
+            0x38, 0xda, // cmp dl, bl
             0x74, 0x0d, // je wait not set
+            0x88, 0x51, 0x07, // mov [ecx + 7], dl
             0x61, // popad
-            0xc7, 0x44, 0xe4, 0xfc, // Mov [esp - 4], dword ...
-        ]).unwrap();
-        // This writes dl to iscript.wait
-        asm.write_u32::<LE>(bw::ISCRIPT_RET as u32).unwrap();
-        // jmp dword [esp - 4]
-        asm.write_all(&[0xff, 0x64, 0xe4, 0xfc]).unwrap();
-        // wait not set
-        asm.write_all(&[
+            0x5f, // pop edi
+            0x5e, // pop esi
+            0x5b, // pop ebx
+            0x8b, 0xe5, // mov esp, ebp
+            0x5d, // pop ebp
+            0xc2, 0x0c, 0x00, // ret 0c
+            // wait_not_set:
             0xa1, 0x00, 0x12, 0x6d, 0x00, // mov eax [6d1200] (iscript_bin)
             0x0f, 0xb7, 0x79, 0x02, // movzx edi word [ecx + 2] (script pos)
             0x03, 0xf8, // add edi, eax
