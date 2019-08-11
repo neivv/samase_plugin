@@ -10,6 +10,7 @@ whack_funcs!(stdcall, init_funcs, 0x00400000,
     0x00475000 => do_next_queued_order(@ecx *mut Unit);
     0x0048D1C0 => print_text(*const u8, @eax u32, u32);
     0x004DABD0 => init_mpqs();
+    0x004D6D90 => add_overlay_iscript(*mut Image, u32, i32, i32, u32) -> *mut Image;
 
     0x004100C4 => SFileOpenFileEx(*mut c_void, *const u8, u32, *mut *mut c_void) -> u32;
     0x00410142 => SFileGetFileSize(*mut c_void, *mut u32) -> u32;
@@ -40,6 +41,7 @@ whack_hooks!(stdcall, 0x00400000,
     0x0040FE11 => FseekFilePointerSet(@eax u32);
     0x004564E0 => GameScreenRClick(@ecx *const Event);
     0x00497CE0 => DrawImage(@esi *mut Image);
+    0x0041A080 => RunDialog(@eax *mut c_void, *mut c_void);
 );
 
 whack_vars!(init_vars, 0x00400000,
@@ -94,6 +96,8 @@ whack_vars!(init_vars, 0x00400000,
     0x00629688 => sprite_hlines: [*mut c_void; 0x100];
     0x0064DEC4 => first_active_bullet: *mut c_void;
     0x00654874 => first_lone_sprite: *mut c_void;
+
+    0x005122A0 => campaigns: [*mut c_void; 6];
 );
 
 pub const AISCRIPT_OPCODE_CMP: usize = 0x0045B883;

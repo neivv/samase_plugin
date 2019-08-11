@@ -99,6 +99,12 @@ struct InternalContext {
     step_secondary_order: Vec<unsafe extern fn(*mut c_void, unsafe extern fn(*mut c_void))>,
     game_screen_rclick: Vec<unsafe extern fn(*mut c_void, unsafe extern fn(*mut c_void))>,
     draw_image: Vec<unsafe extern fn(*mut c_void, unsafe extern fn(*mut c_void))>,
+    run_dialog: Vec<unsafe extern fn(
+        *mut c_void,
+        usize,
+        *mut c_void,
+        unsafe extern fn(*mut c_void, usize, *mut c_void) -> u32,
+    ) -> u32>,
     aiscript_hooks: Vec<(u8, unsafe extern fn(*mut c_void))>,
     iscript_hooks: Vec<
         (u8, unsafe extern fn(*mut c_void, *mut c_void, *mut c_void, u32, *mut u32))
@@ -334,6 +340,26 @@ impl Drop for Context {
                     hook(image as *mut c_void, call_orig);
                 });
             }
+            for hook in ctx.run_dialog {
+                exe.hook_closure(
+                    bw::RunDialog,
+                    move |dialog, event_handler, orig: &Fn(_, _) -> _| {
+                        static mut ORIG:
+                            FnTraitGlobal<*const Fn(*mut c_void, *mut c_void) -> u32> =
+                            FnTraitGlobal::NotSet;
+                        ORIG.set(mem::transmute(orig));
+                        unsafe extern fn call_orig(
+                            dialog: *mut c_void,
+                            _unused: usize,
+                            event_handler: *mut c_void,
+                        ) -> u32 {
+                            let orig = ORIG.get();
+                            (*orig)(dialog, event_handler)
+                        }
+                        hook(dialog, 0, event_handler, call_orig);
+                    }
+                );
+            }
             apply_aiscript_hooks(&mut exe, &ctx.aiscript_hooks);
             apply_iscript_hooks(&mut exe, &ctx.iscript_hooks);
             if ctx.save_extensions_used {
@@ -521,7 +547,7 @@ pub fn init_1161() -> Context {
     unsafe {
         assert!(CONTEXT.get().is_none());
         let api = PluginApi {
-            version: 16,
+            version: 17,
             padding: 0,
             free_memory,
             write_exe_memory,
@@ -573,6 +599,9 @@ pub fn init_1161() -> Context {
             hook_file_read,
             first_active_bullet,
             first_lone_sprite,
+            add_overlay_iscript,
+            set_campaigns,
+            hook_run_dialog,
         };
         let mut patcher = PATCHER.lock().unwrap();
         {
@@ -939,6 +968,18 @@ unsafe extern fn hook_draw_image(
     1
 }
 
+unsafe extern fn hook_run_dialog(
+    hook: unsafe extern fn(
+        *mut c_void,
+        usize,
+        *mut c_void,
+        unsafe extern fn(*mut c_void, usize, *mut c_void) -> u32,
+    ) -> u32,
+) -> u32 {
+    context().run_dialog.push(hook);
+    1
+}
+
 unsafe extern fn hook_renderer(
     _type: u32,
     _hook: unsafe extern fn(),
@@ -998,6 +1039,26 @@ unsafe extern fn first_lone_sprite() -> Option<unsafe extern fn() -> *mut c_void
         *bw::first_lone_sprite
     }
     Some(actual)
+}
+
+unsafe extern fn add_overlay_iscript() ->
+    Option<unsafe extern fn(*mut c_void, u32, i32, i32, u32) -> *mut c_void>
+{
+    unsafe extern fn actual(
+        image: *mut c_void,
+        image_id: u32,
+        x: i32,
+        y: i32,
+        above: u32,
+    ) -> *mut c_void {
+        bw::add_overlay_iscript(image as *mut bw::Image, image_id, x, y, above) as *mut c_void
+    }
+    Some(actual)
+}
+
+unsafe extern fn set_campaigns(val: *const *mut c_void) -> u32 {
+    write_exe_memory(&bw::campaigns[0] as *const *mut c_void as usize, val as *const u8, 6 * 4);
+    1
 }
 
 unsafe extern fn hook_file_read(

@@ -91,4 +91,16 @@ pub struct PluginApi {
         unsafe extern fn(*const u8, unsafe extern fn(*const u8, *mut u32) -> *mut u8),
     pub first_active_bullet: unsafe extern fn() -> Option<unsafe extern fn() -> *mut c_void>,
     pub first_lone_sprite: unsafe extern fn() -> Option<unsafe extern fn() -> *mut c_void>,
+    // Parent image, image_id, x, y, above
+    pub add_overlay_iscript: unsafe extern fn() ->
+        Option<unsafe extern fn(*mut c_void, u32, i32, i32, u32) -> *mut c_void>,
+    pub set_campaigns: unsafe extern fn(*const *mut c_void) -> u32,
+    pub hook_run_dialog: unsafe extern fn(
+        unsafe extern fn(
+            *mut c_void,
+            usize,
+            *mut c_void,
+            unsafe extern fn(*mut c_void, usize, *mut c_void) -> u32,
+        ) -> u32
+    ) -> u32,
 }
