@@ -547,7 +547,7 @@ pub fn init_1161() -> Context {
     unsafe {
         assert!(CONTEXT.get().is_none());
         let api = PluginApi {
-            version: 17,
+            version: 18,
             padding: 0,
             free_memory,
             write_exe_memory,
@@ -602,6 +602,11 @@ pub fn init_1161() -> Context {
             add_overlay_iscript,
             set_campaigns,
             hook_run_dialog,
+            send_command,
+            ai_update_attack_target,
+            update_visibility_point,
+            create_lone_sprite,
+            step_iscript,
         };
         let mut patcher = PATCHER.lock().unwrap();
         {
@@ -866,6 +871,52 @@ unsafe extern fn issue_order() ->
 unsafe extern fn print_text() -> Option<unsafe extern fn(*const u8)> {
     unsafe extern fn actual(text: *const u8) {
         bw::print_text(text, 8, 0);
+    }
+    Some(actual)
+}
+
+unsafe extern fn send_command() -> Option<unsafe extern fn(*const c_void, u32)> {
+    unsafe extern fn actual(data: *const c_void, len: u32) {
+        bw::send_command(data, len);
+    }
+    Some(actual)
+}
+
+unsafe extern fn ai_update_attack_target() ->
+    Option<unsafe extern fn(*mut c_void, u32, u32, u32) -> u32>
+{
+    unsafe extern fn actual(unit: *mut c_void, a1: u32, a2: u32, a3: u32) -> u32 {
+        bw::ai_update_attack_target(unit, a1, a2, a3)
+    }
+    Some(actual)
+}
+
+unsafe extern fn update_visibility_point() -> Option<unsafe extern fn(*mut c_void)> {
+    unsafe extern fn actual(lone_sprite: *mut c_void) {
+        bw::update_visibility_point(lone_sprite);
+    }
+    Some(actual)
+}
+
+unsafe extern fn create_lone_sprite() ->
+    Option<unsafe extern fn(u32, i32, i32, u32) -> *mut c_void>
+{
+    unsafe extern fn actual(id: u32, x: i32, y: i32, player: u32) -> *mut c_void {
+        bw::create_lone_sprite(id, x, y, player)
+    }
+    Some(actual)
+}
+
+unsafe extern fn step_iscript() ->
+    Option<unsafe extern fn(*mut c_void, *mut c_void, u32, *mut u32)>
+{
+    unsafe extern fn actual(
+        image: *mut c_void,
+        iscript: *mut c_void,
+        dry_run: u32,
+        speed_out: *mut u32,
+    ) {
+        bw::step_iscript(image, iscript, dry_run, speed_out)
     }
     Some(actual)
 }

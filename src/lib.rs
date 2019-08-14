@@ -103,4 +103,12 @@ pub struct PluginApi {
             unsafe extern fn(*mut c_void, usize, *mut c_void) -> u32,
         ) -> u32
     ) -> u32,
+    pub send_command: unsafe extern fn() -> Option<unsafe extern fn(*const c_void, u32)>,
+    pub ai_update_attack_target:
+        unsafe extern fn() -> Option<unsafe extern fn(*mut c_void, u32, u32, u32) -> u32>,
+    pub update_visibility_point: unsafe extern fn() -> Option<unsafe extern fn(*mut c_void)>,
+    pub create_lone_sprite:
+        unsafe extern fn() -> Option<unsafe extern fn(u32, i32, i32, u32) -> *mut c_void>,
+    pub step_iscript:
+        unsafe extern fn() -> Option<unsafe extern fn(*mut c_void, *mut c_void, u32, *mut u32)>,
 }

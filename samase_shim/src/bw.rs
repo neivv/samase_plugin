@@ -11,6 +11,11 @@ whack_funcs!(stdcall, init_funcs, 0x00400000,
     0x0048D1C0 => print_text(*const u8, @eax u32, u32);
     0x004DABD0 => init_mpqs();
     0x004D6D90 => add_overlay_iscript(*mut Image, u32, i32, i32, u32) -> *mut Image;
+    0x00485BD0 => send_command(@ecx *const c_void, @edx u32);
+    0x00477160 => ai_update_attack_target(@ecx *mut c_void, u32, u32, u32) -> u32;
+    0x004878F0 => update_visibility_point(@esi *mut c_void);
+    0x00488210 => create_lone_sprite(u32, i32, @edi i32, u32) -> *mut c_void;
+    0x004D74C0 => step_iscript(@ecx *mut c_void, *mut c_void, u32, *mut u32);
 
     0x004100C4 => SFileOpenFileEx(*mut c_void, *const u8, u32, *mut *mut c_void) -> u32;
     0x00410142 => SFileGetFileSize(*mut c_void, *mut u32) -> u32;
