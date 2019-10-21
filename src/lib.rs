@@ -17,6 +17,8 @@ use libc::c_void;
 use commands::{CommandLength, IngameCommandHook};
 use save::{SaveHook, LoadHook};
 
+pub const VERSION: u16 = 19;
+
 #[repr(C, packed)]
 pub struct PluginApi {
     pub version: u16,
@@ -111,4 +113,10 @@ pub struct PluginApi {
         unsafe extern fn() -> Option<unsafe extern fn(u32, i32, i32, u32) -> *mut c_void>,
     pub step_iscript:
         unsafe extern fn() -> Option<unsafe extern fn(*mut c_void, *mut c_void, u32, *mut u32)>,
+    pub is_outside_game_screen: unsafe extern fn() -> Option<unsafe extern fn(i32, i32) -> u32>,
+    pub screen_pos: unsafe extern fn() -> Option<unsafe extern fn(*mut i32, *mut i32)>,
+    pub ui_scale: unsafe extern fn() -> Option<unsafe extern fn() -> f32>,
+    pub first_fow_sprite: unsafe extern fn() -> Option<unsafe extern fn() -> *mut c_void>,
+    pub is_replay: unsafe extern fn() -> Option<unsafe extern fn() -> u32>,
+    pub local_player_id: unsafe extern fn() -> Option<unsafe extern fn() -> u32>,
 }

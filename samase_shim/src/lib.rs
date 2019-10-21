@@ -547,7 +547,7 @@ pub fn init_1161() -> Context {
     unsafe {
         assert!(CONTEXT.get().is_none());
         let api = PluginApi {
-            version: 18,
+            version: samase_plugin::VERSION,
             padding: 0,
             free_memory,
             write_exe_memory,
@@ -607,6 +607,12 @@ pub fn init_1161() -> Context {
             update_visibility_point,
             create_lone_sprite,
             step_iscript,
+            is_outside_game_screen,
+            screen_pos,
+            ui_scale,
+            first_fow_sprite,
+            is_replay,
+            local_player_id,
         };
         let mut patcher = PATCHER.lock().unwrap();
         {
@@ -917,6 +923,49 @@ unsafe extern fn step_iscript() ->
         speed_out: *mut u32,
     ) {
         bw::step_iscript(image, iscript, dry_run, speed_out)
+    }
+    Some(actual)
+}
+
+unsafe extern fn is_outside_game_screen() -> Option<unsafe extern fn(i32, i32) -> u32> {
+    unsafe extern fn actual(x: i32, y: i32) -> u32 {
+        bw::is_outside_game_screen(x, y)
+    }
+    Some(actual)
+}
+
+unsafe extern fn screen_pos() -> Option<unsafe extern fn(*mut i32, *mut i32)> {
+    unsafe extern fn actual(x: *mut i32, y: *mut i32) {
+        *x = *bw::screen_x;
+        *y = *bw::screen_y;
+    }
+    Some(actual)
+}
+
+unsafe extern fn ui_scale() -> Option<unsafe extern fn() -> f32> {
+    unsafe extern fn actual() -> f32 {
+        1.0
+    }
+    Some(actual)
+}
+
+unsafe extern fn first_fow_sprite() -> Option<unsafe extern fn() -> *mut c_void> {
+    unsafe extern fn actual() -> *mut c_void {
+        *bw::first_fow_sprite
+    }
+    Some(actual)
+}
+
+unsafe extern fn is_replay() -> Option<unsafe extern fn() -> u32> {
+    unsafe extern fn actual() -> u32 {
+        *bw::is_replay
+    }
+    Some(actual)
+}
+
+unsafe extern fn local_player_id() -> Option<unsafe extern fn() -> u32> {
+    unsafe extern fn actual() -> u32 {
+        *bw::local_player_id
     }
     Some(actual)
 }

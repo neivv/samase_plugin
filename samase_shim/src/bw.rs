@@ -16,6 +16,7 @@ whack_funcs!(stdcall, init_funcs, 0x00400000,
     0x004878F0 => update_visibility_point(@esi *mut c_void);
     0x00488210 => create_lone_sprite(u32, i32, @edi i32, u32) -> *mut c_void;
     0x004D74C0 => step_iscript(@ecx *mut c_void, *mut c_void, u32, *mut u32);
+    0x004D4DB0 => is_outside_game_screen(@ecx i32, @eax i32) -> u32;
 
     0x004100C4 => SFileOpenFileEx(*mut c_void, *const u8, u32, *mut *mut c_void) -> u32;
     0x00410142 => SFileGetFileSize(*mut c_void, *mut u32) -> u32;
@@ -103,6 +104,11 @@ whack_vars!(init_vars, 0x00400000,
     0x00654874 => first_lone_sprite: *mut c_void;
 
     0x005122A0 => campaigns: [*mut c_void; 6];
+    0x0062848C => screen_x: i32;
+    0x006284A8 => screen_y: i32;
+    0x00654868 => first_fow_sprite: *mut c_void;
+
+    0x00512684 => local_player_id: u32;
 );
 
 pub const AISCRIPT_OPCODE_CMP: usize = 0x0045B883;
