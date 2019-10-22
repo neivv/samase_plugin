@@ -135,7 +135,7 @@ unsafe fn handle_ingame_hooks(
             let state: HookCallState<'static> = mem::transmute(state);
             let player = globals.command_user;
             let uniq = globals.unique_command_user;
-            let states = HOOK_CALL_STATE.get_or(|| Box::new(RefCell::new(Vec::new())));
+            let states = HOOK_CALL_STATE.get_or(|| RefCell::new(Vec::new()));
             states.borrow_mut().push(state);
             hook(cmd.as_ptr(), cmd.len() as u32, player, uniq, call_orig);
             states.borrow_mut().pop().unwrap();

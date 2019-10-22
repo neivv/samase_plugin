@@ -224,7 +224,7 @@ pub fn call_save_hooks<T: File>(mut file: T) -> Result<(), Error> {
     let mut chunks = Vec::new();
     let mut data = Vec::new();
     let hooks = save_hooks();
-    let current_hook_cell = CURRENT_HOOK.get_or(|| Box::new(RefCell::new(Vec::new())));
+    let current_hook_cell = CURRENT_HOOK.get_or(|| RefCell::new(Vec::new()));
     current_hook_cell.replace(Vec::new());
     let chunk_start = file.seek(SeekFrom::End(0))?;
     file.write_u32::<LE>(SAVE_MAGIC)?;
