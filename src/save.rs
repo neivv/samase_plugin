@@ -185,7 +185,7 @@ fn iter_extensions<T: File>(file: &mut T) -> Result<IterExtensions<T>, Error> {
 pub fn call_load_hooks<T: File>(mut file: T) -> Result<(), Error> {
     let hooks = save_hooks();
     let orig_pos = file.seek(SeekFrom::Current(0))?;
-    'outer: for chunk in iter_extensions(&mut file)? {
+    for chunk in iter_extensions(&mut file)? {
         let chunk = chunk?;
         debug!("Loading {}", chunk.tag);
         for hook in hooks.iter() {

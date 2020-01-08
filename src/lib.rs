@@ -19,7 +19,7 @@ use save::{SaveHook, LoadHook};
 
 pub const VERSION: u16 = 19;
 
-#[repr(C, packed)]
+#[repr(C)]
 pub struct PluginApi {
     pub version: u16,
     pub padding: u16,
