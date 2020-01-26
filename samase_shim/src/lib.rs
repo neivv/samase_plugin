@@ -1,12 +1,4 @@
-extern crate byteorder;
-#[macro_use] extern crate lazy_static;
-extern crate libc;
-extern crate parking_lot;
-extern crate thread_local;
 #[macro_use] extern crate whack;
-extern crate winapi;
-
-extern crate samase_plugin;
 
 use std::cell::{Cell, RefCell, RefMut};
 use std::ffi::{CStr, CString};
@@ -32,11 +24,11 @@ mod windows;
 
 pub use samase_plugin::PluginApi;
 
-lazy_static! {
+lazy_static::lazy_static! {
     static ref EXEC_HEAP: usize = unsafe {
         HeapCreate(HEAP_CREATE_ENABLE_EXECUTE, 0, 0) as usize
     };
-    static ref PATCHER: whack::Patcher = whack::Patcher::new();
+    static ref PATCHER: Mutex<whack::Patcher> = Mutex::new(whack::Patcher::new());
     static ref CONTEXT:
         CachedThreadLocal<RefCell<Option<InternalContext>>> = CachedThreadLocal::new();
     static ref FIRST_FILE_ACCESS_HOOKS: Mutex<Vec<unsafe extern fn()>> = Mutex::new(Vec::new());
@@ -214,11 +206,11 @@ impl Drop for Context {
                 ),
             );
         }
-        let mut patcher = PATCHER.lock().unwrap();
+        let mut patcher = PATCHER.lock();
         let mut exe = patcher.patch_exe(0x00400000);
         unsafe {
             for (hook, after) in ctx.step_objects {
-                exe.hook_closure(bw::StepObjects, move |orig: &dyn Fn()| {
+                exe.hook_closure(bw::StepObjects, move |orig| {
                     if after == 0 {
                         *bw::rng_enabled = 1;
                         hook();
@@ -233,51 +225,51 @@ impl Drop for Context {
                 });
             }
             for hook in ctx.step_order {
-                exe.hook_closure(bw::StepOrder, move |unit, orig: &dyn Fn(_)| {
+                exe.hook_closure(bw::StepOrder, move |unit, orig| {
                     // Sketchy, whack should just give fnptrs as the fn traits it currently gives
                     // are stateless anyways.
-                    static mut ORIG: FnTraitGlobal<*const dyn Fn(*mut c_void)> =
+                    static mut ORIG: FnTraitGlobal<unsafe extern fn(*mut c_void)> =
                         FnTraitGlobal::NotSet;
-                    ORIG.set(mem::transmute(orig));
+                    ORIG.set(orig);
                     unsafe extern fn call_orig(unit: *mut c_void) {
                         let orig = ORIG.get();
-                        (*orig)(unit);
+                        orig(unit);
                     }
                     hook(unit, call_orig);
                 });
             }
             for hook in ctx.step_order_hidden {
-                exe.hook_closure(bw::StepOrder_Hidden, move |unit, orig: &dyn Fn(_)| {
-                    static mut ORIG: FnTraitGlobal<*const dyn Fn(*mut c_void)> =
+                exe.hook_closure(bw::StepOrder_Hidden, move |unit, orig| {
+                    static mut ORIG: FnTraitGlobal<unsafe extern fn(*mut c_void)> =
                         FnTraitGlobal::NotSet;
-                    ORIG.set(mem::transmute(orig));
+                    ORIG.set(orig);
                     unsafe extern fn call_orig(unit: *mut c_void) {
                         let orig = ORIG.get();
-                        (*orig)(unit);
+                        orig(unit);
                     }
                     hook(unit, call_orig);
                 });
             }
             for hook in ctx.step_secondary_order {
-                exe.hook_closure(bw::StepSecondaryOrder, move |unit, orig: &dyn Fn(_)| {
-                    static mut ORIG: FnTraitGlobal<*const dyn Fn(*mut c_void)> =
+                exe.hook_closure(bw::StepSecondaryOrder, move |unit, orig| {
+                    static mut ORIG: FnTraitGlobal<unsafe extern fn(*mut c_void)> =
                         FnTraitGlobal::NotSet;
-                    ORIG.set(mem::transmute(orig));
+                    ORIG.set(orig);
                     unsafe extern fn call_orig(unit: *mut c_void) {
                         let orig = ORIG.get();
-                        (*orig)(unit);
+                        orig(unit);
                     }
                     hook(unit, call_orig);
                 });
             }
             for hook in ctx.send_command {
-                exe.hook_closure(bw::SendCommand, move |data, len, orig: &dyn Fn(_, _)| {
-                    static mut ORIG: FnTraitGlobal<*const dyn Fn(*mut c_void, u32)> =
+                exe.hook_closure(bw::SendCommand, move |data, len, orig| {
+                    static mut ORIG: FnTraitGlobal<unsafe extern fn(*mut c_void, u32)> =
                         FnTraitGlobal::NotSet;
-                    ORIG.set(mem::transmute(orig));
+                    ORIG.set(orig);
                     unsafe extern fn call_orig(data: *mut c_void, len: u32) {
                         let orig = ORIG.get();
-                        (*orig)(data, len);
+                        orig(data, len);
                     }
                     hook(data, len, call_orig);
                 });
@@ -285,13 +277,14 @@ impl Drop for Context {
             for hook in ctx.process_commands {
                 exe.hook_closure(
                     bw::ProcessCommands,
-                    move |data, len, replay, orig: &dyn Fn(_, _, _)| {
-                        static mut ORIG: FnTraitGlobal<*const dyn Fn(*const c_void, u32, u32)> =
+                    move |data, len, replay, orig| {
+                        static mut ORIG:
+                            FnTraitGlobal<unsafe extern fn(*const c_void, u32, u32)> =
                             FnTraitGlobal::NotSet;
-                        ORIG.set(mem::transmute(orig));
+                        ORIG.set(orig);
                         unsafe extern fn call_orig(data: *const c_void, len: u32, replay: u32) {
                             let orig = ORIG.get();
-                            (*orig)(data, len, replay);
+                            orig(data, len, replay);
                         }
                         hook(data, len, replay, call_orig);
                     },
@@ -300,28 +293,29 @@ impl Drop for Context {
             for hook in ctx.process_lobby_commands {
                 exe.hook_closure(
                     bw::ProcessLobbyCommands,
-                    move |data, len, replay, orig: &dyn Fn(_, _, _)| {
-                        static mut ORIG: FnTraitGlobal<*const dyn Fn(*const c_void, u32, u32)> =
+                    move |data, len, replay, orig| {
+                        static mut ORIG:
+                            FnTraitGlobal<unsafe extern fn(*const c_void, u32, u32)> =
                             FnTraitGlobal::NotSet;
-                        ORIG.set(mem::transmute(orig));
+                        ORIG.set(orig);
                         unsafe extern fn call_orig(data: *const c_void, len: u32, replay: u32) {
                             let orig = ORIG.get();
-                            (*orig)(data, len, replay);
+                            orig(data, len, replay);
                         }
                         hook(data, len, replay, call_orig);
                     },
                 );
             }
             for hook in ctx.game_screen_rclick {
-                exe.hook_closure(bw::GameScreenRClick, move |event, orig: &dyn Fn(_)| {
-                    static mut ORIG: FnTraitGlobal<*const dyn Fn(*mut c_void)> =
+                exe.hook_closure(bw::GameScreenRClick, move |event, orig| {
+                    static mut ORIG: FnTraitGlobal<unsafe extern fn(*const bw::Event)> =
                         FnTraitGlobal::NotSet;
-                    ORIG.set(mem::transmute(orig));
+                    ORIG.set(orig);
                     unsafe extern fn call_orig(event: *mut c_void) {
                         let event = event as *const bw::scr::Event;
-                        let mut converted = bw::event_to_1161(&*event);
+                        let converted = bw::event_to_1161(&*event);
                         let orig = ORIG.get();
-                        (*orig)(&mut converted as *mut bw::Event as *mut c_void);
+                        orig(&converted as *const bw::Event);
                     }
                     let event = event as *const bw::Event;
                     let mut converted = bw::event_to_scr(&*event);
@@ -329,13 +323,13 @@ impl Drop for Context {
                 });
             }
             for hook in ctx.draw_image {
-                exe.hook_closure(bw::DrawImage, move |image, orig: &dyn Fn(_)| {
-                    static mut ORIG: FnTraitGlobal<*const dyn Fn(*mut bw::Image)> =
+                exe.hook_closure(bw::DrawImage, move |image, orig| {
+                    static mut ORIG: FnTraitGlobal<unsafe extern fn(*mut bw::Image)> =
                         FnTraitGlobal::NotSet;
-                    ORIG.set(mem::transmute(orig));
+                    ORIG.set(orig);
                     unsafe extern fn call_orig(image: *mut c_void) {
                         let orig = ORIG.get();
-                        (*orig)(image as *mut bw::Image)
+                        orig(image as *mut bw::Image)
                     }
                     hook(image as *mut c_void, call_orig);
                 });
@@ -343,9 +337,9 @@ impl Drop for Context {
             for hook in ctx.run_dialog {
                 exe.hook_closure(
                     bw::RunDialog,
-                    move |dialog, event_handler, orig: &dyn Fn(_, _) -> _| {
+                    move |dialog, event_handler, orig| {
                         static mut ORIG:
-                            FnTraitGlobal<*const dyn Fn(*mut c_void, *mut c_void) -> u32> =
+                            FnTraitGlobal<unsafe extern fn(*mut c_void, *mut c_void) -> u32> =
                             FnTraitGlobal::NotSet;
                         ORIG.set(mem::transmute(orig));
                         unsafe extern fn call_orig(
@@ -354,7 +348,7 @@ impl Drop for Context {
                             event_handler: *mut c_void,
                         ) -> u32 {
                             let orig = ORIG.get();
-                            (*orig)(dialog, event_handler)
+                            orig(dialog, event_handler)
                         }
                         hook(dialog, 0, event_handler, call_orig);
                     }
@@ -381,7 +375,7 @@ impl Drop for Context {
                     LAST_FILE_POINTER.get_or(|| Box::new(Cell::new(0))).set(val as u64);
                 }
                 exe.call_hook(bw::SaveReady, save_hook);
-                exe.hook_closure(bw::InitGame, |orig: &dyn Fn()| {
+                exe.hook_closure(bw::InitGame, |orig| {
                     samase_plugin::save::call_init_hooks();
                     orig();
                 });
@@ -417,7 +411,7 @@ impl Drop for Context {
                 filename: *const u8,
                 flags: u32,
                 out: *mut *mut c_void,
-                orig: &dyn Fn(*mut c_void, *const u8, u32, *mut *mut c_void) -> u32,
+                orig: unsafe extern fn(*mut c_void, *const u8, u32, *mut *mut c_void) -> u32,
             ) -> u32 {
                 let hooks = FILE_READ_HOOKS.read();
                 let mut result = None;
@@ -462,7 +456,7 @@ impl Drop for Context {
             unsafe fn size_hook(
                 file: *mut c_void,
                 out_high: *mut u32,
-                orig: &dyn Fn(*mut c_void, *mut u32) -> u32,
+                orig: unsafe extern fn(*mut c_void, *mut u32) -> u32,
             ) -> u32 {
                 if HAS_HOOKED_FILES_OPEN.load(Ordering::Relaxed) {
                     let files = OPEN_HOOKED_FILES.lock();
@@ -484,7 +478,7 @@ impl Drop for Context {
                 len: u32,
                 out_len: *mut u32,
                 overlapped: *mut c_void,
-                orig: &dyn Fn(*mut c_void, *mut u8, u32, *mut u32, *mut c_void) -> u32,
+                orig: unsafe extern fn(*mut c_void, *mut u8, u32, *mut u32, *mut c_void) -> u32,
             ) -> u32 {
                 if HAS_HOOKED_FILES_OPEN.load(Ordering::Relaxed) {
                     let files = OPEN_HOOKED_FILES.lock();
@@ -503,7 +497,7 @@ impl Drop for Context {
 
             unsafe fn close_hook(
                 file: *mut c_void,
-                orig: &dyn Fn(*mut c_void),
+                orig: unsafe extern fn(*mut c_void),
             ) {
                 if HAS_HOOKED_FILES_OPEN.load(Ordering::Relaxed) {
                     let mut files = OPEN_HOOKED_FILES.lock();
@@ -536,7 +530,7 @@ fn context() -> RefMut<'static, InternalContext> {
 }
 
 pub unsafe fn on_win_main(f: unsafe fn()) {
-    let mut patcher = PATCHER.lock().unwrap();
+    let mut patcher = PATCHER.lock();
     let mut exe = patcher.patch_exe(0x00400000);
     bw::init_funcs(&mut exe);
     bw::init_vars(&mut exe);
@@ -614,15 +608,15 @@ pub fn init_1161() -> Context {
             is_replay,
             local_player_id,
         };
-        let mut patcher = PATCHER.lock().unwrap();
+        let mut patcher = PATCHER.lock();
         {
             let mut storm = patcher.patch_library("storm", 0x15000000);
             bw::init_funcs_storm(&mut storm);
         }
         {
-            fn init_mpqs_only_once(orig: &dyn Fn()) {
+            unsafe fn init_mpqs_only_once(orig: unsafe extern fn()) {
                 static ONCE: Once = Once::new();
-                ONCE.call_once(orig);
+                ONCE.call_once(|| orig());
             }
 
             let mut exe = patcher.patch_exe(0x00400000);
