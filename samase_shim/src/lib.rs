@@ -607,6 +607,7 @@ pub fn init_1161() -> Context {
             first_fow_sprite,
             is_replay,
             local_player_id,
+            unit_array_len,
         };
         let mut patcher = PATCHER.lock();
         {
@@ -766,6 +767,15 @@ unsafe extern fn first_hidden_unit() -> Option<unsafe extern fn() -> *mut c_void
 unsafe extern fn units() -> Option<unsafe extern fn() -> *mut c_void> {
     unsafe extern fn actual() -> *mut c_void {
         &mut bw::units[0] as *mut bw::Unit as *mut c_void
+    }
+    Some(actual)
+}
+
+unsafe extern fn unit_array_len() -> Option<unsafe extern fn(*mut *mut c_void, *mut usize)> {
+    unsafe extern fn actual(out: *mut *mut c_void, len: *mut usize) {
+        let first = &mut bw::units[0] as *mut bw::Unit as *mut c_void;
+        *out = first;
+        *len = 1700;
     }
     Some(actual)
 }

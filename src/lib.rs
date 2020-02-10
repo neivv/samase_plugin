@@ -17,7 +17,7 @@ use libc::c_void;
 use commands::{CommandLength, IngameCommandHook};
 use save::{SaveHook, LoadHook};
 
-pub const VERSION: u16 = 19;
+pub const VERSION: u16 = 20;
 
 #[repr(C)]
 pub struct PluginApi {
@@ -119,4 +119,6 @@ pub struct PluginApi {
     pub first_fow_sprite: unsafe extern fn() -> Option<unsafe extern fn() -> *mut c_void>,
     pub is_replay: unsafe extern fn() -> Option<unsafe extern fn() -> u32>,
     pub local_player_id: unsafe extern fn() -> Option<unsafe extern fn() -> u32>,
+    pub unit_array_len:
+        unsafe extern fn() -> Option<unsafe extern fn(*mut *mut c_void, *mut usize)>,
 }
