@@ -308,18 +308,14 @@ impl Drop for Context {
             }
             for hook in ctx.game_screen_rclick {
                 exe.hook_closure(bw::GameScreenRClick, move |event, orig| {
-                    static mut ORIG: FnTraitGlobal<unsafe extern fn(*const bw::Event)> =
+                    static mut ORIG: FnTraitGlobal<unsafe extern fn(*mut c_void)> =
                         FnTraitGlobal::NotSet;
                     ORIG.set(orig);
                     unsafe extern fn call_orig(event: *mut c_void) {
-                        let event = event as *const bw::scr::Event;
-                        let converted = bw::event_to_1161(&*event);
                         let orig = ORIG.get();
-                        orig(&converted as *const bw::Event);
+                        orig(event);
                     }
-                    let event = event as *const bw::Event;
-                    let mut converted = bw::event_to_scr(&*event);
-                    hook(&mut converted as *mut bw::scr::Event as *mut c_void, call_orig);
+                    hook(event as *mut c_void, call_orig);
                 });
             }
             for hook in ctx.draw_image {

@@ -45,7 +45,7 @@ whack_hooks!(stdcall, 0x00400000,
     0x004EEE00 => InitGame();
     0x004D0232 => LoadReady();
     0x0040FE11 => FseekFilePointerSet(@eax u32);
-    0x004564E0 => GameScreenRClick(@ecx *const Event);
+    0x004564E0 => GameScreenRClick(@ecx *mut c_void);
     0x00497CE0 => DrawImage(@esi *mut Image);
     0x0041A080 => RunDialog(@eax *mut c_void, *mut c_void);
 );
@@ -159,61 +159,4 @@ pub struct DatTable {
     data: *mut c_void,
     entry_size: u32,
     entry_count: u32,
-}
-
-#[repr(C)]
-pub struct Event {
-    pub ext_type: u32,
-    pub ext_param: u32,
-    pub param: u32,
-    pub evt_type: u16,
-    pub mouse_x: u16,
-    pub mouse_y: u16,
-}
-
-pub fn event_to_scr(val: &Event) -> scr::Event {
-    scr::Event {
-        ext_type: val.ext_type,
-        _unk4: 0,
-        ext_param: val.ext_param,
-        param: val.param,
-        evt_type: val.evt_type,
-        mouse_x: val.mouse_x,
-        mouse_y: val.mouse_y,
-        _padding16: 0,
-        time: 0,
-    }
-}
-
-pub fn event_to_1161(val: &scr::Event) -> Event {
-    Event {
-        ext_type: val.ext_type,
-        ext_param: val.ext_param,
-        param: val.param,
-        evt_type: val.evt_type,
-        mouse_x: val.mouse_x,
-        mouse_y: val.mouse_y,
-    }
-}
-
-pub mod scr {
-    #[repr(C)]
-    pub struct Event {
-        pub ext_type: u32,
-        pub _unk4: u32,
-        pub ext_param: u32,
-        pub param: u32,
-        pub evt_type: u16,
-        pub mouse_x: u16,
-        pub mouse_y: u16,
-        pub _padding16: u16,
-        pub time: u32,
-    }
-}
-
-#[test]
-fn test_sizes() {
-    use std::mem;
-    assert_eq!(mem::size_of::<scr::Event>(), 0x1c);
-    assert_eq!(mem::size_of::<Event>(), 0x12);
 }
