@@ -48,6 +48,7 @@ whack_hooks!(stdcall, 0x00400000,
     0x004564E0 => GameScreenRClick(@ecx *mut c_void);
     0x00497CE0 => DrawImage(@esi *mut Image);
     0x0041A080 => RunDialog(@eax *mut c_void, *mut c_void);
+    0x00419D20 => SpawnDialog(@esi *mut c_void, @eax *mut c_void);
 );
 
 whack_vars!(init_vars, 0x00400000,
@@ -109,6 +110,11 @@ whack_vars!(init_vars, 0x00400000,
     0x00654868 => first_fow_sprite: *mut c_void;
 
     0x00512684 => local_player_id: u32;
+    0x00652920 => draw_cursor_marker: u8;
+
+    0x006509C4 => is_paused: u32;
+    0x00641694 => is_targeting: u8;
+    0x00640880 => is_placing_building: u32;
 );
 
 pub const AISCRIPT_OPCODE_CMP: usize = 0x0045B883;

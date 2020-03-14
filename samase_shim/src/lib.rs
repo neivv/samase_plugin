@@ -7,7 +7,7 @@ use std::mem;
 use std::ptr::{null, null_mut};
 use std::slice;
 use std::sync::{Once};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use byteorder::{WriteBytesExt, LE};
 use libc::c_void;
@@ -92,6 +92,12 @@ struct InternalContext {
     game_screen_rclick: Vec<unsafe extern fn(*mut c_void, unsafe extern fn(*mut c_void))>,
     draw_image: Vec<unsafe extern fn(*mut c_void, unsafe extern fn(*mut c_void))>,
     run_dialog: Vec<unsafe extern fn(
+        *mut c_void,
+        usize,
+        *mut c_void,
+        unsafe extern fn(*mut c_void, usize, *mut c_void) -> u32,
+    ) -> u32>,
+    spawn_dialog: Vec<unsafe extern fn(
         *mut c_void,
         usize,
         *mut c_void,
@@ -333,6 +339,26 @@ impl Drop for Context {
             for hook in ctx.run_dialog {
                 exe.hook_closure(
                     bw::RunDialog,
+                    move |dialog, event_handler, orig| {
+                        static mut ORIG:
+                            FnTraitGlobal<unsafe extern fn(*mut c_void, *mut c_void) -> u32> =
+                            FnTraitGlobal::NotSet;
+                        ORIG.set(mem::transmute(orig));
+                        unsafe extern fn call_orig(
+                            dialog: *mut c_void,
+                            _unused: usize,
+                            event_handler: *mut c_void,
+                        ) -> u32 {
+                            let orig = ORIG.get();
+                            orig(dialog, event_handler)
+                        }
+                        hook(dialog, 0, event_handler, call_orig);
+                    }
+                );
+            }
+            for hook in ctx.spawn_dialog {
+                exe.hook_closure(
+                    bw::SpawnDialog,
                     move |dialog, event_handler, orig| {
                         static mut ORIG:
                             FnTraitGlobal<unsafe extern fn(*mut c_void, *mut c_void) -> u32> =
@@ -604,6 +630,9 @@ pub fn init_1161() -> Context {
             is_replay,
             local_player_id,
             unit_array_len,
+            draw_cursor_marker,
+            hook_spawn_dialog,
+            misc_ui_state,
         };
         let mut patcher = PATCHER.lock();
         {
@@ -853,6 +882,13 @@ unsafe extern fn players() -> Option<unsafe extern fn() -> *mut c_void> {
     Some(actual)
 }
 
+unsafe extern fn draw_cursor_marker() -> Option<unsafe extern fn(u32)> {
+    unsafe extern fn actual(val: u32) {
+        *bw::draw_cursor_marker = val as u8;
+    }
+    Some(actual)
+}
+
     // self, order, x, y, target, fow_unit
 unsafe extern fn issue_order() ->
     Option<unsafe extern fn(*mut c_void, u32, u32, u32, *mut c_void, u32)>
@@ -1078,6 +1114,42 @@ unsafe extern fn hook_run_dialog(
 ) -> u32 {
     context().run_dialog.push(hook);
     1
+}
+
+unsafe extern fn hook_spawn_dialog(
+    hook: unsafe extern fn(
+        *mut c_void,
+        usize,
+        *mut c_void,
+        unsafe extern fn(*mut c_void, usize, *mut c_void) -> u32,
+    ) -> u32,
+) -> u32 {
+    context().spawn_dialog.push(hook);
+    1
+}
+
+unsafe extern fn misc_ui_state(out_size: usize) -> Option<unsafe extern fn(*mut u8)> {
+    static OUT_SIZE: AtomicUsize = AtomicUsize::new(0);
+    unsafe extern fn actual(out: *mut u8) {
+        // NOTE: Leaving open for future updates with larger out_size but not assuming alingment
+        // on out
+        let out_size = OUT_SIZE.load(Ordering::Acquire);
+        let val = [
+            *bw::is_paused as u8,
+            *bw::is_targeting,
+            *bw::is_placing_building as u8,
+        ];
+        let out = std::slice::from_raw_parts_mut(out, out_size);
+        for (value, out) in val.iter().cloned().zip(out.iter_mut()) {
+            *out = value;
+        }
+    }
+
+    if out_size > 3 || out_size == 0 {
+        return None;
+    }
+    OUT_SIZE.store(out_size, Ordering::Release);
+    Some(actual)
 }
 
 unsafe extern fn hook_renderer(

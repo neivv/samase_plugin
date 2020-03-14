@@ -17,7 +17,7 @@ use libc::c_void;
 use commands::{CommandLength, IngameCommandHook};
 use save::{SaveHook, LoadHook};
 
-pub const VERSION: u16 = 20;
+pub const VERSION: u16 = 21;
 
 #[repr(C)]
 pub struct PluginApi {
@@ -121,4 +121,14 @@ pub struct PluginApi {
     pub local_player_id: unsafe extern fn() -> Option<unsafe extern fn() -> u32>,
     pub unit_array_len:
         unsafe extern fn() -> Option<unsafe extern fn(*mut *mut c_void, *mut usize)>,
+    pub draw_cursor_marker: unsafe extern fn() -> Option<unsafe extern fn(u32)>,
+    pub hook_spawn_dialog: unsafe extern fn(
+        unsafe extern fn(
+            *mut c_void,
+            usize,
+            *mut c_void,
+            unsafe extern fn(*mut c_void, usize, *mut c_void) -> u32,
+        ) -> u32
+    ) -> u32,
+    pub misc_ui_state: unsafe extern fn(usize) -> Option<unsafe extern fn(*mut u8)>,
 }
