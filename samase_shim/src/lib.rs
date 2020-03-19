@@ -106,11 +106,11 @@ struct InternalContext {
     create_bullet: Vec<unsafe extern fn(
         u32, i32, i32, u32, u32, *mut c_void,
         unsafe extern fn(u32, i32, i32, u32, u32, *mut c_void) -> *mut c_void,
-    ) -> u32>,
+    ) -> *mut c_void>,
     create_unit: Vec<unsafe extern fn(
         u32, i32, i32, u32, *const u8,
         unsafe extern fn(u32, i32, i32, u32, *const u8) -> *mut c_void,
-    ) -> u32>,
+    ) -> *mut c_void>,
     aiscript_hooks: Vec<(u8, unsafe extern fn(*mut c_void))>,
     iscript_hooks: Vec<
         (u8, unsafe extern fn(*mut c_void, *mut c_void, *mut c_void, u32, *mut u32))
@@ -399,11 +399,11 @@ impl Drop for Context {
                             player: u32,
                             direction: u32,
                             parent: *mut c_void,
-                        ) -> u32 {
+                        ) -> *mut c_void {
                             let orig = ORIG.get();
                             orig(id, x, y, player, direction, parent)
                         }
-                        hook(id, x, y, player, direction, parent, call_orig);
+                        hook(id, x, y, player, direction, parent, call_orig)
                     }
                 );
             }
@@ -412,7 +412,7 @@ impl Drop for Context {
                     bw::CreateUnit,
                     move |id, x, y, player, orig| {
                         static mut ORIG: FnTraitGlobal<
-                                unsafe extern fn(u32, i32, i32, u32, *const u8) -> *mut c_void
+                                unsafe extern fn(u32, i32, i32, u32) -> *mut c_void
                             > = FnTraitGlobal::NotSet;
                         ORIG.set(mem::transmute(orig));
                         unsafe extern fn call_orig(
@@ -421,12 +421,12 @@ impl Drop for Context {
                             y: i32,
                             player: u32,
                             _skins: *const u8,
-                        ) -> u32 {
+                        ) -> *mut c_void {
                             let orig = ORIG.get();
                             orig(id, x, y, player)
                         }
                         let dummy_skin = [player as u8, player as u8];
-                        hook(id, x, y, player, dummy_skin.as_ptr());
+                        hook(id, x, y, player, dummy_skin.as_ptr(), call_orig)
                     }
                 );
             }
@@ -691,6 +691,8 @@ pub fn init_1161() -> Context {
             hook_create_bullet,
             create_unit,
             hook_create_unit,
+            finish_unit_pre,
+            finish_unit_post,
         };
         let mut patcher = PATCHER.lock();
         {
@@ -1056,6 +1058,20 @@ unsafe extern fn hook_create_unit(
 ) -> u32 {
     context().create_unit.push(hook);
     1
+}
+
+unsafe extern fn finish_unit_pre() -> Option<unsafe extern fn(*mut c_void)> {
+    unsafe extern fn actual(unit: *mut c_void) {
+        bw::finish_unit_pre(unit);
+    }
+    Some(actual)
+}
+
+unsafe extern fn finish_unit_post() -> Option<unsafe extern fn(*mut c_void)> {
+    unsafe extern fn actual(unit: *mut c_void) {
+        bw::finish_unit_post(unit);
+    }
+    Some(actual)
 }
 
 unsafe extern fn step_iscript() ->

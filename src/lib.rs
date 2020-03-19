@@ -149,4 +149,6 @@ pub struct PluginApi {
             unsafe extern fn(u32, i32, i32, u32, *const u8) -> *mut c_void,
         ) -> *mut c_void,
     ) -> u32,
+    pub finish_unit_pre: unsafe extern fn() -> Option<unsafe extern fn(*mut c_void)>,
+    pub finish_unit_post: unsafe extern fn() -> Option<unsafe extern fn(*mut c_void)>,
 }
