@@ -18,6 +18,9 @@ whack_funcs!(stdcall, init_funcs, 0x00400000,
     0x004D74C0 => step_iscript(@ecx *mut c_void, *mut c_void, u32, *mut u32);
     0x004D1140 => is_outside_game_screen(@ecx i32, @eax i32) -> u32;
 
+    0x0048C260 => create_bullet(@ecx u32, i32, i32, u32, u32, @eax *mut c_void) -> *mut c_void;
+    0x004A09D0 => create_unit(@ecx u32, @eax i32, i32, u32) -> *mut c_void;
+
     0x004100C4 => SFileOpenFileEx(*mut c_void, *const u8, u32, *mut *mut c_void) -> u32;
     0x00410142 => SFileGetFileSize(*mut c_void, *mut u32) -> u32;
     0x004100B8 => SFileCloseFile(*mut c_void);
@@ -49,6 +52,8 @@ whack_hooks!(stdcall, 0x00400000,
     0x00497CE0 => DrawImage(@esi *mut Image);
     0x0041A080 => RunDialog(@eax *mut c_void, *mut c_void);
     0x00419D20 => SpawnDialog(@esi *mut c_void, @eax *mut c_void);
+    0x0048C260 => CreateBullet(@ecx u32, i32, i32, u32, u32, @eax *mut c_void) -> *mut c_void;
+    0x004A09D0 => CreateUnit(@ecx u32, @eax i32, i32, u32) -> *mut c_void;
 );
 
 whack_vars!(init_vars, 0x00400000,

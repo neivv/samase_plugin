@@ -103,6 +103,14 @@ struct InternalContext {
         *mut c_void,
         unsafe extern fn(*mut c_void, usize, *mut c_void) -> u32,
     ) -> u32>,
+    create_bullet: Vec<unsafe extern fn(
+        u32, i32, i32, u32, u32, *mut c_void,
+        unsafe extern fn(u32, i32, i32, u32, u32, *mut c_void) -> *mut c_void,
+    ) -> u32>,
+    create_unit: Vec<unsafe extern fn(
+        u32, i32, i32, u32, *const u8,
+        unsafe extern fn(u32, i32, i32, u32, *const u8) -> *mut c_void,
+    ) -> u32>,
     aiscript_hooks: Vec<(u8, unsafe extern fn(*mut c_void))>,
     iscript_hooks: Vec<
         (u8, unsafe extern fn(*mut c_void, *mut c_void, *mut c_void, u32, *mut u32))
@@ -376,6 +384,52 @@ impl Drop for Context {
                     }
                 );
             }
+            for hook in ctx.create_bullet {
+                exe.hook_closure(
+                    bw::CreateBullet,
+                    move |id, x, y, player, direction, parent, orig| {
+                        static mut ORIG: FnTraitGlobal<
+                                unsafe extern fn(u32, i32, i32, u32, u32, *mut c_void) -> *mut c_void
+                            > = FnTraitGlobal::NotSet;
+                        ORIG.set(mem::transmute(orig));
+                        unsafe extern fn call_orig(
+                            id: u32,
+                            x: i32,
+                            y: i32,
+                            player: u32,
+                            direction: u32,
+                            parent: *mut c_void,
+                        ) -> u32 {
+                            let orig = ORIG.get();
+                            orig(id, x, y, player, direction, parent)
+                        }
+                        hook(id, x, y, player, direction, parent, call_orig);
+                    }
+                );
+            }
+            for hook in ctx.create_unit {
+                exe.hook_closure(
+                    bw::CreateUnit,
+                    move |id, x, y, player, orig| {
+                        static mut ORIG: FnTraitGlobal<
+                                unsafe extern fn(u32, i32, i32, u32, *const u8) -> *mut c_void
+                            > = FnTraitGlobal::NotSet;
+                        ORIG.set(mem::transmute(orig));
+                        unsafe extern fn call_orig(
+                            id: u32,
+                            x: i32,
+                            y: i32,
+                            player: u32,
+                            _skins: *const u8,
+                        ) -> u32 {
+                            let orig = ORIG.get();
+                            orig(id, x, y, player)
+                        }
+                        let dummy_skin = [player as u8, player as u8];
+                        hook(id, x, y, player, dummy_skin.as_ptr());
+                    }
+                );
+            }
             apply_aiscript_hooks(&mut exe, &ctx.aiscript_hooks);
             apply_iscript_hooks(&mut exe, &ctx.iscript_hooks);
             if ctx.save_extensions_used {
@@ -633,6 +687,10 @@ pub fn init_1161() -> Context {
             draw_cursor_marker,
             hook_spawn_dialog,
             misc_ui_state,
+            create_bullet,
+            hook_create_bullet,
+            create_unit,
+            hook_create_unit,
         };
         let mut patcher = PATCHER.lock();
         {
@@ -947,6 +1005,57 @@ unsafe extern fn create_lone_sprite() ->
         bw::create_lone_sprite(id, x, y, player)
     }
     Some(actual)
+}
+
+unsafe extern fn create_bullet() ->
+    Option<unsafe extern fn(u32, i32, i32, u32, u32, *mut c_void) -> *mut c_void>
+{
+    unsafe extern fn actual(
+        id: u32,
+        x: i32,
+        y: i32,
+        player: u32,
+        direction: u32,
+        parent: *mut c_void,
+    ) -> *mut c_void {
+        bw::create_bullet(id, x, y, player, direction, parent)
+    }
+    Some(actual)
+}
+
+unsafe extern fn create_unit() ->
+    Option<unsafe extern fn(u32, i32, i32, u32, *const u8) -> *mut c_void>
+{
+    unsafe extern fn actual(
+        id: u32,
+        x: i32,
+        y: i32,
+        player: u32,
+        _skins: *const u8,
+    ) -> *mut c_void {
+        bw::create_unit(id, x, y, player)
+    }
+    Some(actual)
+}
+
+unsafe extern fn hook_create_bullet(
+    hook: unsafe extern fn(
+        u32, i32, i32, u32, u32, *mut c_void,
+        unsafe extern fn(u32, i32, i32, u32, u32, *mut c_void) -> *mut c_void,
+    ) -> *mut c_void,
+) -> u32 {
+    context().create_bullet.push(hook);
+    1
+}
+
+unsafe extern fn hook_create_unit(
+    hook: unsafe extern fn(
+        u32, i32, i32, u32, *const u8,
+        unsafe extern fn(u32, i32, i32, u32, *const u8) -> *mut c_void,
+    ) -> *mut c_void,
+) -> u32 {
+    context().create_unit.push(hook);
+    1
 }
 
 unsafe extern fn step_iscript() ->

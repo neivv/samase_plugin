@@ -17,7 +17,7 @@ use libc::c_void;
 use commands::{CommandLength, IngameCommandHook};
 use save::{SaveHook, LoadHook};
 
-pub const VERSION: u16 = 21;
+pub const VERSION: u16 = 22;
 
 #[repr(C)]
 pub struct PluginApi {
@@ -131,4 +131,22 @@ pub struct PluginApi {
         ) -> u32
     ) -> u32,
     pub misc_ui_state: unsafe extern fn(usize) -> Option<unsafe extern fn(*mut u8)>,
+    // bullet_id, x, y, player, direction, parent
+    pub create_bullet: unsafe extern fn() ->
+        Option<unsafe extern fn(u32, i32, i32, u32, u32, *mut c_void) -> *mut c_void>,
+    pub hook_create_bullet: unsafe extern fn(
+        unsafe extern fn(
+            u32, i32, i32, u32, u32, *mut c_void,
+            unsafe extern fn(u32, i32, i32, u32, u32, *mut c_void) -> *mut c_void,
+        ) -> *mut c_void,
+    ) -> u32,
+    // unit_id, x, y, player, skin
+    pub create_unit: unsafe extern fn() ->
+        Option<unsafe extern fn(u32, i32, i32, u32, *const u8) -> *mut c_void>,
+    pub hook_create_unit: unsafe extern fn(
+        unsafe extern fn(
+            u32, i32, i32, u32, *const u8,
+            unsafe extern fn(u32, i32, i32, u32, *const u8) -> *mut c_void,
+        ) -> *mut c_void,
+    ) -> u32,
 }
