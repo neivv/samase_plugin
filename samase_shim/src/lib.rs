@@ -693,6 +693,8 @@ pub fn init_1161() -> Context {
             hook_create_unit,
             finish_unit_pre,
             finish_unit_post,
+            get_sprite_position,
+            set_sprite_position,
         };
         let mut patcher = PATCHER.lock();
         {
@@ -1072,6 +1074,24 @@ unsafe extern fn finish_unit_post() -> Option<unsafe extern fn(*mut c_void)> {
         bw::finish_unit_post(unit);
     }
     Some(actual)
+}
+
+unsafe extern fn get_sprite_position() -> Option<unsafe extern fn(*mut c_void, *mut u16)> {
+    unsafe extern fn func(sprite: *mut c_void, pos: *mut u16) {
+        *pos.add(0) = (*(sprite as *mut bw::Sprite)).position.x as u16;
+        *pos.add(1) = (*(sprite as *mut bw::Sprite)).position.y as u16;
+    }
+
+    Some(func)
+}
+
+unsafe extern fn set_sprite_position() -> Option<unsafe extern fn(*mut c_void, *const u16)> {
+    unsafe extern fn func(sprite: *mut c_void, pos: *const u16) {
+        (*(sprite as *mut bw::Sprite)).position.x = *pos.add(0) as i16;
+        (*(sprite as *mut bw::Sprite)).position.y = *pos.add(1) as i16;
+    }
+
+    Some(func)
 }
 
 unsafe extern fn step_iscript() ->

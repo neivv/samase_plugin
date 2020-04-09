@@ -147,6 +147,33 @@ pub struct Game;
 pub struct Unit;
 pub struct AiRegion;
 
+#[repr(C, packed)]
+pub struct Sprite {
+    pub prev: *mut Sprite,
+    pub next: *mut Sprite,
+    pub sprite_id: u16,
+    pub player: u8,
+    pub selection_index: u8,
+    pub visibility_mask: u8,
+    pub elevation_level: u8,
+    pub flags: u8,
+    pub selection_flash_timer: u8,
+    pub index: u16,
+    pub width: u8,
+    pub height: u8,
+    pub position: Point,
+    pub main_image: *mut Image,
+    pub first_image: *mut Image,
+    pub last_image: *mut Image,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct Point {
+    pub x: i16,
+    pub y: i16,
+}
+
 #[repr(C)]
 pub struct Image {
     _data: [u8; 0x40],
