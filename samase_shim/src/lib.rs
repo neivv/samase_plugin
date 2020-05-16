@@ -111,6 +111,7 @@ struct InternalContext {
         u32, i32, i32, u32, *const u8,
         unsafe extern fn(u32, i32, i32, u32, *const u8) -> *mut c_void,
     ) -> *mut c_void>,
+    init_units: Vec<unsafe extern fn(unsafe extern fn())>,
     aiscript_hooks: Vec<(u8, unsafe extern fn(*mut c_void))>,
     iscript_hooks: Vec<
         (u8, unsafe extern fn(*mut c_void, *mut c_void, *mut c_void, u32, *mut u32))
@@ -430,6 +431,14 @@ impl Drop for Context {
                     }
                 );
             }
+            for hook in ctx.init_units {
+                exe.hook_closure(
+                    bw::InitUnits,
+                    move |orig| {
+                        hook(orig)
+                    },
+                );
+            }
             apply_aiscript_hooks(&mut exe, &ctx.aiscript_hooks);
             apply_iscript_hooks(&mut exe, &ctx.iscript_hooks);
             if ctx.save_extensions_used {
@@ -695,6 +704,7 @@ pub fn init_1161() -> Context {
             finish_unit_post,
             get_sprite_position,
             set_sprite_position,
+            hook_init_units,
         };
         let mut patcher = PATCHER.lock();
         {
@@ -1092,6 +1102,11 @@ unsafe extern fn set_sprite_position() -> Option<unsafe extern fn(*mut c_void, *
     }
 
     Some(func)
+}
+
+unsafe extern fn hook_init_units(hook: unsafe extern fn(unsafe extern fn())) -> u32 {
+    context().init_units.push(hook);
+    1
 }
 
 unsafe extern fn step_iscript() ->

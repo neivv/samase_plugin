@@ -17,7 +17,7 @@ use libc::c_void;
 use commands::{CommandLength, IngameCommandHook};
 use save::{SaveHook, LoadHook};
 
-pub const VERSION: u16 = 23;
+pub const VERSION: u16 = 24;
 
 #[repr(C)]
 pub struct PluginApi {
@@ -155,4 +155,5 @@ pub struct PluginApi {
         unsafe extern fn() -> Option<unsafe extern fn(*mut c_void, *mut u16)>,
     pub set_sprite_position:
         unsafe extern fn() -> Option<unsafe extern fn(*mut c_void, *const u16)>,
+    pub hook_init_units: unsafe extern fn(unsafe extern fn(unsafe extern fn())) -> u32,
 }

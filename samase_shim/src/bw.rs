@@ -56,6 +56,7 @@ whack_hooks!(stdcall, 0x00400000,
     0x00419D20 => SpawnDialog(@esi *mut c_void, @eax *mut c_void);
     0x0048C260 => CreateBullet(@ecx u32, i32, i32, u32, u32, @eax *mut c_void) -> *mut c_void;
     0x004A09D0 => CreateUnit(@ecx u32, @eax i32, i32, u32) -> *mut c_void;
+    0x0049F380 => InitUnits();
 );
 
 whack_vars!(init_vars, 0x00400000,
