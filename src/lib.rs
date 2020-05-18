@@ -17,7 +17,7 @@ use libc::c_void;
 use commands::{CommandLength, IngameCommandHook};
 use save::{SaveHook, LoadHook};
 
-pub const VERSION: u16 = 24;
+pub const VERSION: u16 = 25;
 
 #[repr(C)]
 pub struct PluginApi {
@@ -156,4 +156,14 @@ pub struct PluginApi {
     pub set_sprite_position:
         unsafe extern fn() -> Option<unsafe extern fn(*mut c_void, *const u16)>,
     pub hook_init_units: unsafe extern fn(unsafe extern fn(unsafe extern fn())) -> u32,
+    pub get_tooltip_draw_func:
+        unsafe extern fn() -> Option<unsafe extern fn() -> Option<unsafe extern fn(*mut c_void)>>,
+    pub set_tooltip_draw_func:
+        unsafe extern fn() -> Option<unsafe extern fn(Option<unsafe extern fn(*mut c_void)>)>,
+    pub hook_layout_draw_text: unsafe extern fn(
+        unsafe extern fn(
+            u32, u32, *const u8, *mut u32, u32, *mut u32, u32, u32,
+            unsafe extern fn(u32, u32, *const u8, *mut u32, u32, *mut u32, u32, u32) -> *const u8,
+        ) -> *const u8,
+    ) -> u32,
 }

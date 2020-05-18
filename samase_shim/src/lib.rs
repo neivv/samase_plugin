@@ -705,6 +705,9 @@ pub fn init_1161() -> Context {
             get_sprite_position,
             set_sprite_position,
             hook_init_units,
+            get_tooltip_draw_func,
+            set_tooltip_draw_func,
+            hook_layout_draw_text,
         };
         let mut patcher = PATCHER.lock();
         {
@@ -1107,6 +1110,29 @@ unsafe extern fn set_sprite_position() -> Option<unsafe extern fn(*mut c_void, *
 unsafe extern fn hook_init_units(hook: unsafe extern fn(unsafe extern fn())) -> u32 {
     context().init_units.push(hook);
     1
+}
+
+unsafe extern fn get_tooltip_draw_func() ->
+    Option<unsafe extern fn() -> Option<unsafe extern fn(*mut c_void)>>
+{
+    // Dunno how it works on 1161
+    None
+}
+
+unsafe extern fn set_tooltip_draw_func() ->
+    Option<unsafe extern fn(Option<unsafe extern fn(*mut c_void)>)>
+{
+    // Dunno how it works on 1161
+    None
+}
+
+unsafe extern fn hook_layout_draw_text(
+    _hook: unsafe extern fn(
+        u32, u32, *const u8, *mut u32, u32, *mut u32, u32, u32,
+        unsafe extern fn(u32, u32, *const u8, *mut u32, u32, *mut u32, u32, u32) -> *const u8,
+    ) -> *const u8,
+) -> u32 {
+    0
 }
 
 unsafe extern fn step_iscript() ->
