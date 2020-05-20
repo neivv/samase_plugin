@@ -166,4 +166,8 @@ pub struct PluginApi {
             unsafe extern fn(u32, u32, *const u8, *mut u32, u32, *mut u32, u32, u32) -> *const u8,
         ) -> *const u8,
     ) -> u32,
+    pub hook_draw_graphic_layers: unsafe extern fn(
+        unsafe extern fn(u32, unsafe extern fn(u32)),
+    ) -> u32,
+    pub graphic_layers: unsafe extern fn() -> Option<unsafe extern fn() -> *mut c_void>,
 }
