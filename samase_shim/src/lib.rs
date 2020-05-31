@@ -710,6 +710,8 @@ pub fn init_1161() -> Context {
             hook_layout_draw_text,
             hook_draw_graphic_layers,
             graphic_layers,
+            set_prism_shaders,
+            crash_with_message,
         };
         let mut patcher = PATCHER.lock();
         {
@@ -1146,6 +1148,14 @@ unsafe extern fn hook_draw_graphic_layers(
 unsafe extern fn graphic_layers() -> Option<unsafe extern fn() -> *mut c_void> {
     // Dunno how it works on 1161
     None
+}
+
+unsafe extern fn set_prism_shaders(_shader_type: u32, _id: u32, _data: *const u8) -> u32 {
+    0
+}
+
+unsafe extern fn crash_with_message(_msg: *const u8) -> ! {
+    std::process::exit(5);
 }
 
 unsafe extern fn step_iscript() ->
