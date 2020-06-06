@@ -172,8 +172,9 @@ pub struct PluginApi {
     pub graphic_layers: unsafe extern fn() -> Option<unsafe extern fn() -> *mut c_void>,
     // Arg 1 shader type (0 = Vertex, 1 = Pixel)
     // Arg 2 shader id
-    // Arg 3 pointer (Must be wrapped and have static lifetime)
-    pub set_prism_shaders: unsafe extern fn(u32, u32, *const u8) -> u32,
+    // Arg 3 pointer (Must be a pointer to the entire set with static lifetime)
+    // Arg 4 set size
+    pub set_prism_shaders: unsafe extern fn(u32, u32, *const u8, u32) -> u32,
     // Can be stored and called after plugin initialization function.
     pub crash_with_message: unsafe extern fn(*const u8) -> !,
 }

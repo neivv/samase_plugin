@@ -1150,7 +1150,12 @@ unsafe extern fn graphic_layers() -> Option<unsafe extern fn() -> *mut c_void> {
     None
 }
 
-unsafe extern fn set_prism_shaders(_shader_type: u32, _id: u32, _data: *const u8) -> u32 {
+unsafe extern fn set_prism_shaders(
+    _shader_type: u32,
+    _id: u32,
+    _data: *const u8,
+    _size: u32,
+) -> u32 {
     0
 }
 
