@@ -712,6 +712,7 @@ pub fn init_1161() -> Context {
             graphic_layers,
             set_prism_shaders,
             crash_with_message,
+            ai_attack_prepare,
         };
         let mut patcher = PATCHER.lock();
         {
@@ -1109,6 +1110,13 @@ unsafe extern fn set_sprite_position() -> Option<unsafe extern fn(*mut c_void, *
     }
 
     Some(func)
+}
+
+unsafe extern fn ai_attack_prepare() -> Option<unsafe extern fn(u32, u32, u32, u32, u32) -> u32> {
+    unsafe extern fn actual(player: u32, x: u32, y: u32, arg4: u32, arg5: u32) -> u32 {
+        bw::ai_attack_prepare(player, x, y, arg4, arg5)
+    }
+    Some(actual)
 }
 
 unsafe extern fn hook_init_units(hook: unsafe extern fn(unsafe extern fn())) -> u32 {

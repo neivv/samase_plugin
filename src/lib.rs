@@ -17,7 +17,7 @@ use libc::c_void;
 use commands::{CommandLength, IngameCommandHook};
 use save::{SaveHook, LoadHook};
 
-pub const VERSION: u16 = 26;
+pub const VERSION: u16 = 27;
 
 #[repr(C)]
 pub struct PluginApi {
@@ -177,4 +177,6 @@ pub struct PluginApi {
     pub set_prism_shaders: unsafe extern fn(u32, u32, *const u8, u32) -> u32,
     // Can be stored and called after plugin initialization function.
     pub crash_with_message: unsafe extern fn(*const u8) -> !,
+    pub ai_attack_prepare:
+        unsafe extern fn() -> Option<unsafe extern fn(u32, u32, u32, u32, u32) -> u32>,
 }
