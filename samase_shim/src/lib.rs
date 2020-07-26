@@ -112,6 +112,7 @@ struct InternalContext {
         unsafe extern fn(u32, i32, i32, u32, *const u8) -> *mut c_void,
     ) -> *mut c_void>,
     init_units: Vec<unsafe extern fn(unsafe extern fn())>,
+    ai_step_region: Vec<unsafe extern fn(u32, u32, unsafe extern fn(u32, u32))>,
     aiscript_hooks: Vec<(u8, unsafe extern fn(*mut c_void))>,
     iscript_hooks: Vec<
         (u8, unsafe extern fn(*mut c_void, *mut c_void, *mut c_void, u32, *mut u32))
@@ -439,6 +440,14 @@ impl Drop for Context {
                     },
                 );
             }
+            for hook in ctx.ai_step_region {
+                exe.hook_closure(
+                    bw::AiStepRegion,
+                    move |player, region, orig| {
+                        hook(player, region, orig)
+                    },
+                );
+            }
             apply_aiscript_hooks(&mut exe, &ctx.aiscript_hooks);
             apply_iscript_hooks(&mut exe, &ctx.iscript_hooks);
             if ctx.save_extensions_used {
@@ -457,7 +466,7 @@ impl Drop for Context {
                     }
                 }
                 unsafe fn file_pointer_set(val: u32) {
-                    LAST_FILE_POINTER.get_or(|| Box::new(Cell::new(0))).set(val as u64);
+                    LAST_FILE_POINTER.get_or(|| Cell::new(0)).set(val as u64);
                 }
                 exe.call_hook(bw::SaveReady, save_hook);
                 exe.hook_closure(bw::InitGame, |orig| {
@@ -505,7 +514,7 @@ impl Drop for Context {
                 for i in 0..hooks.len() {
                     let hook = &hooks[i];
                     if hook.matches(filename) {
-                        let call_marker = hook.being_called.get_or(|| Box::new(Cell::new(false)));
+                        let call_marker = hook.being_called.get_or(|| Cell::new(false));
                         if call_marker.get() == false {
                             any_called = true;
                             call_marker.set(true);
@@ -522,7 +531,7 @@ impl Drop for Context {
                 }
                 if any_called && !already_calling {
                     for hook in &*hooks {
-                        let call_marker = hook.being_called.get_or(|| Box::new(Cell::new(false)));
+                        let call_marker = hook.being_called.get_or(|| Cell::new(false));
                         call_marker.set(false);
                     }
                 }
@@ -713,6 +722,7 @@ pub fn init_1161() -> Context {
             set_prism_shaders,
             crash_with_message,
             ai_attack_prepare,
+            hook_ai_step_region,
         };
         let mut patcher = PATCHER.lock();
         {
@@ -732,7 +742,7 @@ pub fn init_1161() -> Context {
             exe.hook_opt(bw::InitMpqs, init_mpqs_only_once);
         }
 
-        CONTEXT.get_or(|| Box::new(RefCell::new(Some(Default::default()))));
+        CONTEXT.get_or(|| RefCell::new(Some(Default::default())));
         Context {
             api,
         }
@@ -1121,6 +1131,13 @@ unsafe extern fn ai_attack_prepare() -> Option<unsafe extern fn(u32, u32, u32, u
 
 unsafe extern fn hook_init_units(hook: unsafe extern fn(unsafe extern fn())) -> u32 {
     context().init_units.push(hook);
+    1
+}
+
+unsafe extern fn hook_ai_step_region(
+    hook: unsafe extern fn(u32, u32, unsafe extern fn(u32, u32)),
+) -> u32 {
+    context().ai_step_region.push(hook);
     1
 }
 

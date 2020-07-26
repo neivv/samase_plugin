@@ -17,7 +17,7 @@ use libc::c_void;
 use commands::{CommandLength, IngameCommandHook};
 use save::{SaveHook, LoadHook};
 
-pub const VERSION: u16 = 27;
+pub const VERSION: u16 = 28;
 
 #[repr(C)]
 pub struct PluginApi {
@@ -179,4 +179,7 @@ pub struct PluginApi {
     pub crash_with_message: unsafe extern fn(*const u8) -> !,
     pub ai_attack_prepare:
         unsafe extern fn() -> Option<unsafe extern fn(u32, u32, u32, u32, u32) -> u32>,
+    pub hook_ai_step_region: unsafe extern fn(
+        unsafe extern fn(u32, u32, unsafe extern fn(u32, u32))
+    ) -> u32,
 }

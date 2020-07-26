@@ -59,6 +59,7 @@ whack_hooks!(stdcall, 0x00400000,
     0x0048C260 => CreateBullet(@ecx u32, i32, i32, u32, u32, @eax *mut c_void) -> *mut c_void;
     0x004A09D0 => CreateUnit(@ecx u32, @eax i32, i32, u32) -> *mut c_void;
     0x0049F380 => InitUnits();
+    0x0043FC60 => AiStepRegion(@ecx u32, @eax u32);
 );
 
 whack_vars!(init_vars, 0x00400000,
