@@ -723,6 +723,7 @@ pub fn init_1161() -> Context {
             crash_with_message,
             ai_attack_prepare,
             hook_ai_step_region,
+            extended_arrays,
         };
         let mut patcher = PATCHER.lock();
         {
@@ -1139,6 +1140,13 @@ unsafe extern fn hook_ai_step_region(
 ) -> u32 {
     context().ai_step_region.push(hook);
     1
+}
+
+unsafe extern fn extended_arrays(
+    out: *mut *mut samase_plugin::ExtendedArray,
+) -> usize {
+    *out = null_mut();
+    0
 }
 
 unsafe extern fn get_tooltip_draw_func() ->
