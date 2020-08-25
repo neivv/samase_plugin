@@ -724,6 +724,7 @@ pub fn init_1161() -> Context {
             ai_attack_prepare,
             hook_ai_step_region,
             extended_arrays,
+            extended_dat,
         };
         let mut patcher = PATCHER.lock();
         {
@@ -1294,6 +1295,45 @@ unsafe extern fn dat(dat: u32) -> Option<unsafe extern fn() -> *mut c_void> {
         portdata_dat,
     }
     let fun: unsafe extern fn() -> *mut c_void = match dat {
+        0 => units_dat,
+        1 => weapons_dat,
+        2 => flingy_dat,
+        3 => upgrades_dat,
+        4 => techdata_dat,
+        5 => sprites_dat,
+        6 => images_dat,
+        7 => orders_dat,
+        8 => sfxdata_dat,
+        9 => portdata_dat,
+        _ => return None,
+    };
+    Some(fun)
+}
+
+unsafe extern fn extended_dat(dat: u32) -> Option<unsafe extern fn(*mut usize) -> *mut c_void> {
+    macro_rules! dat_fns {
+        ($($name:ident, $len:expr,)*) => {
+            $(
+                unsafe extern fn $name(len: *mut usize) -> *mut c_void {
+                    *len = $len;
+                    bw::$name.as_ptr() as *mut c_void
+                }
+            )*
+        }
+    }
+    dat_fns! {
+        units_dat, 0x36,
+        weapons_dat, 0x18,
+        flingy_dat, 0x7,
+        upgrades_dat, 0xc,
+        techdata_dat, 0xb,
+        sprites_dat, 0x6,
+        images_dat, 0xe,
+        orders_dat, 0x13,
+        sfxdata_dat, 0x5,
+        portdata_dat, 0x6,
+    }
+    let fun: unsafe extern fn(*mut usize) -> *mut c_void = match dat {
         0 => units_dat,
         1 => weapons_dat,
         2 => flingy_dat,
