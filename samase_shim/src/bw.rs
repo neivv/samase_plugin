@@ -24,6 +24,7 @@ whack_funcs!(stdcall, init_funcs, 0x00400000,
     0x0049FA40 => finish_unit_post(@eax *mut c_void);
 
     0x0043ABB0 => ai_attack_prepare(u32, u32, u32, u32, u32) -> u32;
+    0x00463040 => give_ai(@eax *mut c_void);
 
     0x004100C4 => SFileOpenFileEx(*mut c_void, *const u8, u32, *mut *mut c_void) -> u32;
     0x00410142 => SFileGetFileSize(*mut c_void, *mut u32) -> u32;

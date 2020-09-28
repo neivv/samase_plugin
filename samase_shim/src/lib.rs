@@ -725,6 +725,7 @@ pub fn init_1161() -> Context {
             hook_ai_step_region,
             extended_arrays,
             extended_dat,
+            give_ai,
         };
         let mut patcher = PATCHER.lock();
         {
@@ -1127,6 +1128,13 @@ unsafe extern fn set_sprite_position() -> Option<unsafe extern fn(*mut c_void, *
 unsafe extern fn ai_attack_prepare() -> Option<unsafe extern fn(u32, u32, u32, u32, u32) -> u32> {
     unsafe extern fn actual(player: u32, x: u32, y: u32, arg4: u32, arg5: u32) -> u32 {
         bw::ai_attack_prepare(player, x, y, arg4, arg5)
+    }
+    Some(actual)
+}
+
+unsafe extern fn give_ai() -> Option<unsafe extern fn(*mut c_void)> {
+    unsafe extern fn actual(unit: *mut c_void) {
+        bw::give_ai(unit);
     }
     Some(actual)
 }

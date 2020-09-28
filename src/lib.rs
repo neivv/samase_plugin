@@ -17,7 +17,7 @@ use libc::c_void;
 use commands::{CommandLength, IngameCommandHook};
 use save::{SaveHook, LoadHook};
 
-pub const VERSION: u16 = 30;
+pub const VERSION: u16 = 31;
 
 #[repr(C)]
 pub struct ExtendedArray {
@@ -193,4 +193,5 @@ pub struct PluginApi {
     pub extended_arrays: unsafe extern fn(*mut *mut ExtendedArray) -> usize,
     pub extended_dat:
         unsafe extern fn(u32) -> Option<unsafe extern fn(*mut usize) -> *mut c_void>,
+    pub give_ai: unsafe extern fn() -> Option<unsafe extern fn(*mut c_void)>,
 }
