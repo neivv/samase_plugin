@@ -147,6 +147,8 @@ fn find_extended_data_offset<T: File>(file: &mut T) -> Option<u64> {
 }
 
 fn iter_extensions<T: File>(file: &mut T) -> Result<IterExtensions<T>, Error> {
+    use bincode::Options;
+
     file.seek(SeekFrom::Start(0))?;
     let ext_offset = find_extended_data_offset(file).ok_or_else(|| Error::BadSave)?;
     trace!("Save extended offset {:x}", ext_offset);
@@ -162,8 +164,10 @@ fn iter_extensions<T: File>(file: &mut T) -> Result<IterExtensions<T>, Error> {
             if version != SAVE_VERSION {
                 return Err(Error::BadSave);
             }
-            let mut config = bincode::config();
-            config.limit(4096);
+            let config = bincode::options()
+                .with_fixint_encoding()
+                .allow_trailing_bytes()
+                .with_limit(4096);
             let chunks: Vec<SerializedChunk> = config.deserialize_from(&mut *file)?;
             if chunks.iter().any(|x| x.length > 0x0400_0000) {
                 return Err(Error::BadSave);
@@ -266,8 +270,10 @@ pub fn call_save_hooks<T: File>(mut file: T) -> Result<(), Error> {
         };
         chunk.compressed = compressed_size;
     }
-    // Quick hack for 1.16.1 saves
+    // Quick hack for 1.16.1 saves. Store samase chunk offset
+    // as last u32 of the file. (For SC:R it is stored among all other extended chunks)
     file.write_u32::<LE>(chunk_start as u32)?;
+    // Fix header offsets
     let chunk_end = file.seek(SeekFrom::Current(0))?;
     file.seek(SeekFrom::Start(chunk_start + 4))?;
     let chunk_size = chunk_end - (chunk_start + 8);
