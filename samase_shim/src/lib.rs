@@ -726,6 +726,7 @@ pub fn init_1161() -> Context {
             extended_arrays,
             extended_dat,
             give_ai,
+            hook_play_sound,
         };
         let mut patcher = PATCHER.lock();
         {
@@ -1421,6 +1422,20 @@ unsafe extern fn hook_spawn_dialog(
 ) -> u32 {
     context().spawn_dialog.push(hook);
     1
+}
+
+unsafe extern fn hook_play_sound(
+    _hook: unsafe extern fn(
+        u32,
+        f32,
+        *mut c_void,
+        *mut i32,
+        *mut i32,
+        unsafe extern fn(u32, f32, *mut c_void, *mut i32, *mut i32) -> u32,
+    ) -> u32,
+) -> u32 {
+    // 1161 function args aren't same as SCR
+    0
 }
 
 unsafe extern fn misc_ui_state(out_size: usize) -> Option<unsafe extern fn(*mut u8)> {
