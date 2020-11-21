@@ -98,16 +98,21 @@ impl<'a, T: File + 'a> Iterator for IterExtensions<'a, T> {
         let mut next = || {
             let pos = self.pos;
             self.pos += 1;
-            let mut buf = vec![0; self.chunks[pos].length];
+            let chunk = &self.chunks[pos];
+            trace!(
+                "Yield save extension {} {:x}/{:x}",
+                chunk.tag, chunk.length, chunk.compressed,
+            );
+            let mut buf = vec![0; chunk.length];
             let current_pos = self.file.seek(SeekFrom::Current(0))?;
-            let end_pos = current_pos + self.chunks[pos].compressed as u64;
+            let end_pos = current_pos + chunk.compressed as u64;
             {
                 let mut reader = flate2::read::DeflateDecoder::new(&mut *self.file);
                 reader.read_exact(&mut buf)?;
             }
             self.file.seek(SeekFrom::Start(end_pos))?;
             Ok(Chunk {
-                tag: self.chunks[pos].tag.clone(),
+                tag: chunk.tag.clone(),
                 data: buf,
             })
         };
@@ -231,6 +236,7 @@ pub fn call_save_hooks<T: File>(mut file: T) -> Result<(), Error> {
     let current_hook_cell = CURRENT_HOOK.get_or(|| RefCell::new(Vec::new()));
     current_hook_cell.replace(Vec::new());
     let chunk_start = file.seek(SeekFrom::End(0))?;
+    trace!("Writing save extension chunk starting from offset {:x}", chunk_start);
     file.write_u32::<LE>(SAVE_MAGIC)?;
     file.write_u32::<LE>(0)?;
     file.write_u32::<LE>(SAVE_VERSION)?;
@@ -269,6 +275,7 @@ pub fn call_save_hooks<T: File>(mut file: T) -> Result<(), Error> {
             writer.total_out() as usize
         };
         chunk.compressed = compressed_size;
+        trace!("Write save extension {} {:x}/{:x}", chunk.tag, chunk.length, chunk.compressed);
     }
     // Quick hack for 1.16.1 saves. Store samase chunk offset
     // as last u32 of the file. (For SC:R it is stored among all other extended chunks)
