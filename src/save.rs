@@ -91,10 +91,7 @@ impl<'a, T: File + 'a> Iterator for IterExtensions<'a, T> {
         if self.pos >= self.chunks.len() {
             return None;
         }
-        let pos = self.file.seek(SeekFrom::Current(0)).unwrap();
-        let mut x = Vec::new();
-        self.file.read_to_end(&mut x).unwrap();
-        self.file.seek(SeekFrom::Start(pos)).unwrap();
+
         let mut next = || {
             let pos = self.pos;
             self.pos += 1;
