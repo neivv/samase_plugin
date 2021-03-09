@@ -1,4 +1,3 @@
-extern crate bincode;
 extern crate byteorder;
 extern crate flate2;
 #[macro_use] extern crate lazy_static;
@@ -6,7 +5,6 @@ extern crate libc;
 #[macro_use] extern crate log;
 extern crate parking_lot;
 #[macro_use] extern crate quick_error;
-#[macro_use] extern crate serde_derive;
 extern crate thread_local;
 
 pub mod commands;
@@ -14,8 +12,8 @@ pub mod save;
 
 use libc::c_void;
 
-use commands::{CommandLength, IngameCommandHook};
-use save::{SaveHook, LoadHook};
+use crate::commands::{CommandLength, IngameCommandHook};
+use crate::save::{SaveHook, LoadHook};
 
 pub const VERSION: u16 = 32;
 

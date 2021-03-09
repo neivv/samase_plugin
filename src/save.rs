@@ -1,10 +1,7 @@
-use std;
 use std::cell::{RefCell};
 use std::io::{self, BufRead, Read, Write, Seek, SeekFrom};
 
-use bincode;
-use byteorder::{ReadBytesExt, WriteBytesExt, LE};
-use flate2;
+use byteorder::{ByteOrder, ReadBytesExt, WriteBytesExt, LE, LittleEndian};
 use parking_lot::{Mutex, MutexGuard};
 use thread_local::CachedThreadLocal;
 
@@ -24,10 +21,6 @@ quick_error! {
     pub enum Error {
         Io(e: io::Error) {
             display("I/O error {}", e)
-            from()
-        }
-        Bincode(e: bincode::Error) {
-            display("Bincode: {}", e)
             from()
         }
         HookFail(t: String) {
@@ -73,10 +66,11 @@ pub fn call_init_hooks() {
     }
 }
 
-struct IterExtensions<'a, T: File + 'a> {
-    file: &'a mut T,
+struct IterExtensions {
+    buffer: Vec<u8>,
     chunks: Vec<SerializedChunk>,
     pos: usize,
+    buffer_pos: usize,
 }
 
 #[derive(Debug)]
@@ -85,7 +79,7 @@ struct Chunk {
     data: Vec<u8>,
 }
 
-impl<'a, T: File + 'a> Iterator for IterExtensions<'a, T> {
+impl Iterator for IterExtensions {
     type Item = Result<Chunk, Error>;
     fn next(&mut self) -> Option<Self::Item> {
         if self.pos >= self.chunks.len() {
@@ -101,13 +95,12 @@ impl<'a, T: File + 'a> Iterator for IterExtensions<'a, T> {
                 chunk.tag, chunk.length, chunk.compressed,
             );
             let mut buf = vec![0; chunk.length];
-            let current_pos = self.file.seek(SeekFrom::Current(0))?;
-            let end_pos = current_pos + chunk.compressed as u64;
             {
-                let mut reader = flate2::read::DeflateDecoder::new(&mut *self.file);
+                let slice = &self.buffer[self.buffer_pos..][..chunk.compressed];
+                let mut reader = flate2::read::DeflateDecoder::new(slice);
                 reader.read_exact(&mut buf)?;
             }
-            self.file.seek(SeekFrom::Start(end_pos))?;
+            self.buffer_pos += chunk.compressed;
             Ok(Chunk {
                 tag: chunk.tag.clone(),
                 data: buf,
@@ -148,39 +141,59 @@ fn find_extended_data_offset<T: File>(file: &mut T) -> Option<u64> {
     }
 }
 
-fn iter_extensions<T: File>(file: &mut T) -> Result<IterExtensions<T>, Error> {
-    use bincode::Options;
-
+fn iter_extensions<T: File>(file: &mut T) -> Result<IterExtensions, Error> {
     file.seek(SeekFrom::Start(0))?;
     let ext_offset = find_extended_data_offset(file).ok_or_else(|| Error::BadSave)?;
     trace!("Save extended offset {:x}", ext_offset);
     file.seek(SeekFrom::Start(ext_offset))?;
     loop {
-        let extension = file.read_u32::<LE>()?;
-        let size = file.read_u32::<LE>()?;
+        let mut ext_size = [0u8; 8];
+        file.read_exact(&mut ext_size)?;
+        let extension = LittleEndian::read_u32(&ext_size);
+        let size = LittleEndian::read_u32(&ext_size[4..]);
         if extension == SAVE_MAGIC {
             if size > 0x1000000 {
                 return Err(Error::BadSave);
             }
-            let version = file.read_u32::<LE>()?;
+            let mut buffer = Vec::with_capacity(size as usize);
+            file.take(size as u64).read_to_end(&mut buffer)?;
+            let mut read = &buffer[..];
+            let version = read.read_u32::<LE>()?;
             if version != SAVE_VERSION {
                 return Err(Error::BadSave);
             }
-            let config = bincode::options()
-                .with_fixint_encoding()
-                .allow_trailing_bytes()
-                .with_limit(4096);
-            let chunks: Vec<SerializedChunk> = config.deserialize_from(&mut *file)?;
-            if chunks.iter().any(|x| x.length > 0x0400_0000) {
-                return Err(Error::BadSave);
+            let chunk_count = read.read_u64::<LE>()? as usize;
+            let mut chunks = Vec::with_capacity(chunk_count);
+            let mut compressed_sum = 0usize;
+            for _ in 0..chunk_count {
+                let name_len = read.read_u64::<LE>()? as usize;
+                let name = match std::str::from_utf8(&read[..name_len]) {
+                    Ok(o) => o,
+                    Err(_) => return Err(Error::BadSave),
+                };
+                read = &read[name_len..];
+                let length = read.read_u64::<LE>()? as usize;
+                let compressed = read.read_u64::<LE>()? as usize;
+                if length > 0x0400_0000 {
+                    return Err(Error::BadSave);
+                }
+                compressed_sum = compressed_sum.checked_add(compressed)
+                    .ok_or_else(|| Error::BadSave)?;
+                chunks.push(SerializedChunk {
+                    tag: name.into(),
+                    length,
+                    compressed,
+                });
             }
-            if chunks.iter().map(|x| x.compressed).sum::<usize>() > size as usize {
+            // Won't be exactly same since there's also 1161-compatibility u32
+            if read.len() < compressed_sum {
                 return Err(Error::BadSave);
             }
             return Ok(IterExtensions {
-                file,
                 chunks,
                 pos: 0,
+                buffer_pos: buffer.len() - read.len(),
+                buffer,
             });
         } else {
             file.seek(SeekFrom::Current(size as i64))?;
@@ -213,7 +226,7 @@ pub fn call_load_hooks<T: File>(mut file: T) -> Result<(), Error> {
     Ok(())
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Debug)]
 struct SerializedChunk {
     tag: String,
     length: usize,
@@ -234,9 +247,22 @@ pub fn call_save_hooks<T: File>(mut file: T) -> Result<(), Error> {
     current_hook_cell.replace(Vec::new());
     let chunk_start = file.seek(SeekFrom::End(0))?;
     trace!("Writing save extension chunk starting from offset {:x}", chunk_start);
-    file.write_u32::<LE>(SAVE_MAGIC)?;
-    file.write_u32::<LE>(0)?;
-    file.write_u32::<LE>(SAVE_VERSION)?;
+    // Format: (First 2 fields are part of SC:R extension header)
+    // u32 magic
+    // u32 rest_len
+    // u32 version (0)
+    // u64 extension_count
+    // Extension chunks[extension_count] {
+    //     u64 name_len
+    //     char name[name_len] (Not null-terminated)
+    //     u64 length
+    //     u64 compressed_length
+    // }
+    // u8 chunk_data [compressed_length][extension_count] (Deflated)
+    let mut buffer = Vec::with_capacity(0x2000);
+    buffer.write_u32::<LE>(SAVE_MAGIC)?;
+    buffer.write_u32::<LE>(0)?;
+    buffer.write_u32::<LE>(SAVE_VERSION)?;
     for hook in hooks.iter() {
         if let Some(save) = hook.save {
             unsafe {
@@ -260,11 +286,16 @@ pub fn call_save_hooks<T: File>(mut file: T) -> Result<(), Error> {
             }
         }
     }
-    bincode::serialize_into(&mut file, &chunks)?;
+    buffer.write_u64::<LE>(chunks.len() as u64)?;
+    let chunks_size = chunks.iter()
+        .map(|x| (8usize * 3).wrapping_add(x.tag.len()))
+        .sum();
+    let chunks_start = buffer.len();
+    buffer.resize_with(chunks_start + chunks_size, || 0);
     for (block, chunk) in data.iter().zip(chunks.iter_mut()) {
         let compressed_size = {
             let mut writer = flate2::write::DeflateEncoder::new(
-                &mut file,
+                &mut buffer,
                 flate2::Compression::default(),
             );
             writer.write_all(&block)?;
@@ -274,16 +305,22 @@ pub fn call_save_hooks<T: File>(mut file: T) -> Result<(), Error> {
         chunk.compressed = compressed_size;
         trace!("Write save extension {} {:x}/{:x}", chunk.tag, chunk.length, chunk.compressed);
     }
+
     // Quick hack for 1.16.1 saves. Store samase chunk offset
     // as last u32 of the file. (For SC:R it is stored among all other extended chunks)
-    file.write_u32::<LE>(chunk_start as u32)?;
+    buffer.write_u32::<LE>(chunk_start as u32)?;
     // Fix header offsets
-    let chunk_end = file.seek(SeekFrom::Current(0))?;
-    file.seek(SeekFrom::Start(chunk_start + 4))?;
-    let chunk_size = chunk_end - (chunk_start + 8);
+    let chunk_size = buffer.len() - 8;
     assert!(chunk_size < 0x1000000);
-    file.write_u32::<LE>(chunk_size as u32)?;
-    file.write_u32::<LE>(SAVE_VERSION)?;
-    bincode::serialize_into(&mut file, &chunks)?;
-    Ok(())
+    (&mut buffer[4..]).write_u32::<LE>(chunk_size as u32)?;
+    let mut out = &mut buffer[chunks_start..][..chunks_size];
+    for chunk in &chunks {
+        let tag = chunk.tag.as_bytes();
+        out.write_u64::<LE>(tag.len() as u64)?;
+        (&mut out[..tag.len()]).copy_from_slice(tag);
+        out = &mut out[tag.len()..];
+        out.write_u64::<LE>(chunk.length as u64)?;
+        out.write_u64::<LE>(chunk.compressed as u64)?;
+    }
+    file.write_all(&buffer).map_err(|x| x.into())
 }
