@@ -2,8 +2,10 @@ use std::cell::{RefCell};
 use std::io::{self, BufRead, Read, Write, Seek, SeekFrom};
 
 use byteorder::{ByteOrder, ReadBytesExt, WriteBytesExt, LE, LittleEndian};
-use parking_lot::{Mutex, MutexGuard};
-use thread_local::CachedThreadLocal;
+use once_cell::sync::Lazy;
+use parking_lot::{Mutex, MutexGuard, const_mutex};
+use quick_error::quick_error;
+use thread_local::ThreadLocal;
 
 pub type SaveHook = Option<unsafe extern fn(unsafe extern fn(*const u8, usize))>;
 pub type LoadHook = Option<unsafe extern fn(*const u8, usize) -> u32>;
@@ -11,10 +13,8 @@ pub type LoadHook = Option<unsafe extern fn(*const u8, usize) -> u32>;
 const SAVE_MAGIC: u32 = 0x53736d53;
 const SAVE_VERSION: u32 = 0;
 
-lazy_static! {
-    static ref SAVE_HOOKS: Mutex<Vec<Hook>> = Mutex::new(Vec::new());
-    static ref CURRENT_HOOK: CachedThreadLocal<RefCell<Vec<u8>>> = CachedThreadLocal::new();
-}
+static SAVE_HOOKS: Mutex<Vec<Hook>> = const_mutex(Vec::new());
+static CURRENT_HOOK: Lazy<ThreadLocal<RefCell<Vec<u8>>>> = Lazy::new(|| ThreadLocal::new());
 
 quick_error! {
     #[derive(Debug)]

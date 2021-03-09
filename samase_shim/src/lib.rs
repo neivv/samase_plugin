@@ -11,8 +11,9 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use byteorder::{WriteBytesExt, LE};
 use libc::c_void;
-use thread_local::CachedThreadLocal;
-use parking_lot::{Mutex, RwLock};
+use thread_local::ThreadLocal;
+use once_cell::sync::Lazy;
+use parking_lot::{Mutex, RwLock, const_mutex, const_rwlock};
 use winapi::um::heapapi::{GetProcessHeap, HeapAlloc, HeapCreate, HeapFree};
 use winapi::um::winnt::{HANDLE, HEAP_CREATE_ENABLE_EXECUTE};
 
@@ -24,25 +25,21 @@ mod windows;
 
 pub use samase_plugin::PluginApi;
 
-lazy_static::lazy_static! {
-    static ref EXEC_HEAP: usize = unsafe {
-        HeapCreate(HEAP_CREATE_ENABLE_EXECUTE, 0, 0) as usize
-    };
-    static ref PATCHER: Mutex<whack::Patcher> = Mutex::new(whack::Patcher::new());
-    static ref CONTEXT:
-        CachedThreadLocal<RefCell<Option<InternalContext>>> = CachedThreadLocal::new();
-    static ref FIRST_FILE_ACCESS_HOOKS: Mutex<Vec<unsafe extern fn()>> = Mutex::new(Vec::new());
-    static ref FILE_READ_HOOKS: RwLock<Vec<FileReadHook>> = RwLock::new(Vec::new());
-    static ref OPEN_HOOKED_FILES: Mutex<Vec<HeapFreeOnDropPtr>> = Mutex::new(Vec::new());
-    static ref LAST_FILE_POINTER: CachedThreadLocal<Cell<u64>> = CachedThreadLocal::new();
-}
+static PATCHER: Mutex<whack::Patcher> = const_mutex(whack::Patcher::new());
+static FIRST_FILE_ACCESS_HOOKS: Mutex<Vec<unsafe extern fn()>> = const_mutex(Vec::new());
+static FILE_READ_HOOKS: RwLock<Vec<FileReadHook>> = const_rwlock(Vec::new());
+static OPEN_HOOKED_FILES: Mutex<Vec<HeapFreeOnDropPtr>> = const_mutex(Vec::new());
+
+static CONTEXT: Lazy<ThreadLocal<RefCell<Option<InternalContext>>>> =
+    Lazy::new(|| ThreadLocal::new());
+static LAST_FILE_POINTER: Lazy<ThreadLocal<Cell<u64>>> = Lazy::new(|| ThreadLocal::new());
 
 static HAS_HOOKED_FILES_OPEN: AtomicBool = AtomicBool::new(false);
 
 struct FileReadHook {
     prefix: Vec<u8>,
     hook: unsafe extern fn(*const u8, *mut u32) -> *mut u8,
-    being_called: CachedThreadLocal<Cell<bool>>,
+    being_called: ThreadLocal<Cell<bool>>,
 }
 
 impl FileReadHook {
@@ -66,8 +63,8 @@ impl std::ops::Drop for HeapFreeOnDrop {
 unsafe impl Send for HeapFreeOnDropPtr {}
 unsafe impl Sync for HeapFreeOnDropPtr {}
 
-unsafe fn exec_alloc(size: usize) -> *mut u8 {
-    HeapAlloc(*EXEC_HEAP as HANDLE, 0, size) as *mut u8
+unsafe fn exec_alloc(heap: HANDLE, size: usize) -> *mut u8 {
+    HeapAlloc(heap, 0, size) as *mut u8
 }
 
 pub struct Context {
@@ -448,8 +445,13 @@ impl Drop for Context {
                     },
                 );
             }
-            apply_aiscript_hooks(&mut exe, &ctx.aiscript_hooks);
-            apply_iscript_hooks(&mut exe, &ctx.iscript_hooks);
+
+            if !ctx.aiscript_hooks.is_empty() || !ctx.iscript_hooks.is_empty() {
+                // Heap gets leaked to keep the exec code alive
+                let exec_heap = HeapCreate(HEAP_CREATE_ENABLE_EXECUTE, 0, 0);
+                apply_aiscript_hooks(&mut exe, &ctx.aiscript_hooks, exec_heap);
+                apply_iscript_hooks(&mut exe, &ctx.iscript_hooks, exec_heap);
+            }
             if ctx.save_extensions_used {
                 unsafe fn save_hook(file: *mut c_void) {
                     // TODO ?
@@ -1551,7 +1553,7 @@ unsafe extern fn hook_file_read(
     FILE_READ_HOOKS.write().push(FileReadHook {
         prefix,
         hook,
-        being_called: CachedThreadLocal::new(),
+        being_called: ThreadLocal::new(),
     });
 }
 
@@ -1634,6 +1636,7 @@ unsafe extern fn dat_requirements() -> Option<unsafe extern fn(u32, u32) -> *con
 unsafe fn apply_aiscript_hooks(
     exe: &mut whack::ModulePatcher,
     hooks: &[(u8, unsafe extern fn(*mut c_void))],
+    exec_heap: HANDLE,
 ) {
     if hooks.is_empty() {
         return;
@@ -1689,7 +1692,7 @@ unsafe fn apply_aiscript_hooks(
         // jmp dword [esp - 4]
         asm.write_all(&[0xff, 0x64, 0xe4, 0xfc]).unwrap();
     }
-    let exec_asm = exec_alloc(asm.len());
+    let exec_asm = exec_alloc(exec_heap, asm.len());
     std::ptr::copy_nonoverlapping(asm.as_ptr(), exec_asm, asm.len());
     for (opcode, offset) in asm_offsets {
         switch_table[opcode as usize] = exec_asm as u32 + offset as u32;
@@ -1705,7 +1708,8 @@ unsafe fn apply_aiscript_hooks(
 
 unsafe fn apply_iscript_hooks(
     exe: &mut whack::ModulePatcher,
-    hooks: &[(u8, unsafe extern fn(*mut c_void, *mut c_void, *mut c_void, u32, *mut u32))]
+    hooks: &[(u8, unsafe extern fn(*mut c_void, *mut c_void, *mut c_void, u32, *mut u32))],
+    exec_heap: HANDLE,
 ) {
     if hooks.is_empty() {
         return;
@@ -1773,7 +1777,7 @@ unsafe fn apply_iscript_hooks(
         // jmp dword [esp - 4]
         asm.write_all(&[0xff, 0x64, 0xe4, 0xfc]).unwrap();
     }
-    let exec_asm = exec_alloc(asm.len());
+    let exec_asm = exec_alloc(exec_heap, asm.len());
     std::ptr::copy_nonoverlapping(asm.as_ptr(), exec_asm, asm.len());
     for (opcode, offset) in asm_offsets {
         switch_table[opcode as usize] = exec_asm as u32 + offset as u32;

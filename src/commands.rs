@@ -3,21 +3,21 @@ use std::mem;
 use std::slice;
 
 use libc::c_void;
-use thread_local::CachedThreadLocal;
-use parking_lot::{Mutex, RwLock};
+use thread_local::ThreadLocal;
+use once_cell::sync::Lazy;
+use parking_lot::{Mutex, RwLock, const_mutex, const_rwlock};
 
 // data, len, game player, unique player, orig
 pub type IngameCommandHook =
     unsafe extern fn(*const u8, u32, u32, u32, unsafe extern fn(*const u8, u32));
 pub type CommandLength = unsafe extern fn(*const u8, u32) -> u32;
 
-lazy_static! {
-    static ref INGAME_HOOKS: RwLock<Vec<(u8, IngameCommandHook)>> = RwLock::new(Vec::new());
-    static ref COMMAND_LENGTHS: RwLock<Vec<(u8, CommandLength)>> = RwLock::new(Vec::new());
-    static ref DEFAULT_COMMAND_LENGTHS: Mutex<Vec<u32>> = Mutex::new(Vec::new());
-    static ref HOOK_CALL_STATE: CachedThreadLocal<RefCell<Vec<HookCallState<'static>>>> =
-        CachedThreadLocal::new();
-}
+static INGAME_HOOKS: RwLock<Vec<(u8, IngameCommandHook)>> = const_rwlock(Vec::new());
+static COMMAND_LENGTHS: RwLock<Vec<(u8, CommandLength)>> = const_rwlock(Vec::new());
+static DEFAULT_COMMAND_LENGTHS: Mutex<Vec<u32>> = const_mutex(Vec::new());
+
+static HOOK_CALL_STATE: Lazy<ThreadLocal<RefCell<Vec<HookCallState<'static>>>>> =
+    Lazy::new(|| ThreadLocal::new());
 
 #[derive(Clone, Copy)]
 struct HookCallState<'a> {

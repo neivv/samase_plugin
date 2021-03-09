@@ -1,11 +1,4 @@
-extern crate byteorder;
-extern crate flate2;
-#[macro_use] extern crate lazy_static;
-extern crate libc;
 #[macro_use] extern crate log;
-extern crate parking_lot;
-#[macro_use] extern crate quick_error;
-extern crate thread_local;
 
 pub mod commands;
 pub mod save;
