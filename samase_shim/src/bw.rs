@@ -73,6 +73,7 @@ whack_vars!(init_vars, 0x00400000,
     0x0068FEE8 => player_ai: [PlayerAi; 0x8];
     0x006D1218 => loaded_save: *mut c_void;
     0x006D0F14 => is_replay: u32;
+    0x0057F0B4 => is_multiplayer: u8;
     0x00512678 => command_user: u32;
     0x0051267C => unique_command_user: u32;
     0x005005F8 => command_lengths: [u32; 0x60];

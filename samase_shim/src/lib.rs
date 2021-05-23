@@ -729,6 +729,7 @@ pub fn init_1161() -> Context {
             extended_dat,
             give_ai,
             hook_play_sound,
+            is_multiplayer,
         };
         let mut patcher = PATCHER.lock();
         {
@@ -1254,6 +1255,13 @@ unsafe extern fn first_fow_sprite() -> Option<unsafe extern fn() -> *mut c_void>
 unsafe extern fn is_replay() -> Option<unsafe extern fn() -> u32> {
     unsafe extern fn actual() -> u32 {
         *bw::is_replay
+    }
+    Some(actual)
+}
+
+unsafe extern fn is_multiplayer() -> Option<unsafe extern fn() -> u32> {
+    unsafe extern fn actual() -> u32 {
+        *bw::is_multiplayer as u32
     }
     Some(actual)
 }

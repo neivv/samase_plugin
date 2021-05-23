@@ -8,7 +8,7 @@ use libc::c_void;
 use crate::commands::{CommandLength, IngameCommandHook};
 use crate::save::{SaveHook, LoadHook};
 
-pub const VERSION: u16 = 32;
+pub const VERSION: u16 = 33;
 
 #[repr(C)]
 pub struct ExtendedArray {
@@ -191,4 +191,5 @@ pub struct PluginApi {
             unsafe extern fn(u32, f32, *mut c_void, *mut i32, *mut i32) -> u32,
         ) -> u32
     ) -> u32,
+    pub is_multiplayer: unsafe extern fn() -> Option<unsafe extern fn() -> u32>,
 }
