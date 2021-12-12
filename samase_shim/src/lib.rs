@@ -730,6 +730,7 @@ pub fn init_1161() -> Context {
             give_ai,
             hook_play_sound,
             is_multiplayer,
+            hook_game_loop_start,
         };
         let mut patcher = PATCHER.lock();
         {
@@ -1445,6 +1446,13 @@ unsafe extern fn hook_play_sound(
     ) -> u32,
 ) -> u32 {
     // 1161 function args aren't same as SCR
+    0
+}
+
+unsafe extern fn hook_game_loop_start(
+    _hook: unsafe extern fn(),
+) -> u32 {
+    // TODO
     0
 }
 
