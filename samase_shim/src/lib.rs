@@ -731,6 +731,7 @@ pub fn init_1161() -> Context {
             hook_play_sound,
             is_multiplayer,
             hook_game_loop_start,
+            active_iscript_objects,
         };
         let mut patcher = PATCHER.lock();
         {
@@ -1270,6 +1271,24 @@ unsafe extern fn is_multiplayer() -> Option<unsafe extern fn() -> u32> {
 unsafe extern fn local_player_id() -> Option<unsafe extern fn() -> u32> {
     unsafe extern fn actual() -> u32 {
         *bw::local_player_id
+    }
+    Some(actual)
+}
+
+unsafe extern fn active_iscript_objects() ->
+    Option<unsafe extern fn(*mut *mut c_void, *const *mut c_void)>
+{
+    unsafe extern fn actual(read: *mut *mut c_void, write: *const *mut c_void) {
+        if !read.is_null() {
+            *read.add(0) = *bw::active_iscript_flingy;
+            *read.add(1) = *bw::active_iscript_unit;
+            *read.add(2) = *bw::active_iscript_bullet;
+        }
+        if !write.is_null() {
+            *bw::active_iscript_flingy = *write.add(0);
+            *bw::active_iscript_unit = *write.add(1);
+            *bw::active_iscript_bullet = *write.add(2);
+        }
     }
     Some(actual)
 }
