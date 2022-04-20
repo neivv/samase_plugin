@@ -114,6 +114,8 @@ struct InternalContext {
     iscript_hooks: Vec<
         (u8, unsafe extern fn(*mut c_void, *mut c_void, *mut c_void, u32, *mut u32))
     >,
+    ai_focus_disabled: Vec<unsafe extern fn(*mut c_void, unsafe extern fn(*mut c_void))>,
+    ai_focus_air: Vec<unsafe extern fn(*mut c_void, unsafe extern fn(*mut c_void))>,
     save_extensions_used: bool,
 }
 
@@ -445,6 +447,22 @@ impl Drop for Context {
                     },
                 );
             }
+            for hook in ctx.ai_focus_disabled {
+                exe.hook_closure(
+                    bw::AiFocusDisabled,
+                    move |unit, orig| {
+                        hook(unit, orig)
+                    },
+                );
+            }
+            for hook in ctx.ai_focus_air {
+                exe.hook_closure(
+                    bw::AiFocusAir,
+                    move |unit, orig| {
+                        hook(unit, orig)
+                    },
+                );
+            }
 
             if !ctx.aiscript_hooks.is_empty() || !ctx.iscript_hooks.is_empty() {
                 // Heap gets leaked to keep the exec code alive
@@ -732,6 +750,8 @@ pub fn init_1161() -> Context {
             is_multiplayer,
             hook_game_loop_start,
             active_iscript_objects,
+            hook_ai_focus_disabled,
+            hook_ai_focus_air,
         };
         let mut patcher = PATCHER.lock();
         {
@@ -1473,6 +1493,20 @@ unsafe extern fn hook_game_loop_start(
 ) -> u32 {
     // TODO
     0
+}
+
+unsafe extern fn hook_ai_focus_disabled(
+    hook: unsafe extern fn(*mut c_void, unsafe extern fn(*mut c_void)),
+) -> u32 {
+    context().ai_focus_disabled.push(hook);
+    1
+}
+
+unsafe extern fn hook_ai_focus_air(
+    hook: unsafe extern fn(*mut c_void, unsafe extern fn(*mut c_void)),
+) -> u32 {
+    context().ai_focus_air.push(hook);
+    1
 }
 
 unsafe extern fn misc_ui_state(out_size: usize) -> Option<unsafe extern fn(*mut u8)> {

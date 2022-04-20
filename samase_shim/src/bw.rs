@@ -61,6 +61,8 @@ whack_hooks!(stdcall, 0x00400000,
     0x004A09D0 => CreateUnit(@ecx u32, @eax i32, i32, u32) -> *mut c_void;
     0x0049F380 => InitUnits();
     0x0043FC60 => AiStepRegion(@ecx u32, @eax u32);
+    0x0043FF00 => AiFocusDisabled(@eax *mut c_void);
+    0x0043FE50 => AiFocusAir(@esi *mut c_void);
 );
 
 whack_vars!(init_vars, 0x00400000,

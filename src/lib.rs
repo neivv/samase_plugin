@@ -8,7 +8,7 @@ use libc::c_void;
 use crate::commands::{CommandLength, IngameCommandHook};
 use crate::save::{SaveHook, LoadHook};
 
-pub const VERSION: u16 = 35;
+pub const VERSION: u16 = 36;
 
 #[repr(C)]
 pub struct ExtendedArray {
@@ -195,4 +195,10 @@ pub struct PluginApi {
     pub hook_game_loop_start: unsafe extern fn(unsafe extern fn()) -> u32,
     pub active_iscript_objects:
         unsafe extern fn() -> Option<unsafe extern fn(*mut *mut c_void, *const *mut c_void)>,
+    pub hook_ai_focus_disabled: unsafe extern fn(
+        unsafe extern fn(*mut c_void, unsafe extern fn(*mut c_void))
+    ) -> u32,
+    pub hook_ai_focus_air: unsafe extern fn(
+        unsafe extern fn(*mut c_void, unsafe extern fn(*mut c_void))
+    ) -> u32,
 }
