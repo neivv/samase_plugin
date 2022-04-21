@@ -184,7 +184,7 @@ impl io::Seek for BwFile {
         let (method, low) = match pos {
             io::SeekFrom::Start(pos) => (0, pos as u32),
             io::SeekFrom::Current(pos) => (1, pos as u32),
-            io::SeekFrom::End(pos) => (2, 0u32.wrapping_sub(pos as u32)),
+            io::SeekFrom::End(pos) => (2, pos as u32),
         };
         unsafe {
             let result = bw::fseek(self.0, low, method);
