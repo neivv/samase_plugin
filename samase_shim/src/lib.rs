@@ -1229,14 +1229,14 @@ unsafe extern fn set_prism_shaders(
 
 unsafe extern fn crash_with_message(msg: *const u8) -> ! {
     use std::path::Path;
-    let path = if Path::new("errors").is_directory() {
+    let path = if Path::new("errors").is_dir() {
         Path::new("errors/plugin_crash")
     } else {
         Path::new("plugin_crash")
     };
-    let len = (0..).find(|i| *msg.add(i) == 0).unwrap();
+    let len = (0..).position(|i| *msg.add(i) == 0).unwrap();
     let slice = std::slice::from_raw_parts(msg, len);
-    let _ = fs::write(path, slice);
+    let _ = std::fs::write(path, slice);
     std::process::exit(5);
 }
 
