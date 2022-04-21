@@ -2,7 +2,7 @@ extern crate byteorder;
 extern crate samase_plugin;
 
 use std::fs;
-use std::io::{self, Cursor, Read, Seek};
+use std::io::{self, Cursor, Seek};
 use std::slice;
 
 use byteorder::{ReadBytesExt, LE};
@@ -16,9 +16,7 @@ fn repeat_tag() {
     save::add_hook("tag".into(), Some(save_hook), Some(load_hook), init_hook);
     save::add_hook("tag".into(), Some(save_hook), Some(load_hook), init_hook);
     save::add_hook("unrelated".into(), Some(nop_save), Some(nop_load), nop_init);
-    let mut file = fs::File::open("tests/save.snx").unwrap();
-    let mut data = Vec::new();
-    file.read_to_end(&mut data).unwrap();
+    let data = fs::read("tests/save.snx").unwrap();
     let orig_data = data.clone();
     let mut save_file = TestFile(Cursor::new(data));
     save::call_save_hooks(&mut save_file).unwrap();
@@ -37,6 +35,19 @@ fn repeat_tag() {
         (&data[orig_data.len() + 4..]).read_u32::<LE>().unwrap(),
         (data.len() - orig_data.len() - 8) as u32
     );
+}
+
+#[test]
+fn v1161_compat() {
+    // Tests that reading multiple save sections by different plugins works correctly
+    // If format is changed one day then this test breaks and either should be updated
+    // or removed.
+    save::add_hook("mtl".into(), Some(nop_save), Some(verify_mtl), nop_init);
+    save::add_hook("aise".into(), Some(nop_save), Some(verify_aise), nop_init);
+    save::add_hook("aice".into(), Some(nop_save), Some(verify_aice), nop_init);
+    let data = fs::read("tests/idk.snx").unwrap();
+    let mut save_file = TestFile(Cursor::new(data));
+    save::call_load_hooks(&mut save_file).unwrap();
 }
 
 unsafe extern fn nop_save(_add_data: unsafe extern fn(*const u8, usize)) {
@@ -97,4 +108,29 @@ impl<'a> save::File for &'a mut TestFile {
     fn warn(&mut self, msg: &str) {
         panic!("Warnings not expected: {}", msg);
     }
+}
+
+unsafe extern fn verify_mtl(data: *const u8, length: usize) -> u32 {
+    let slice = slice::from_raw_parts(data, length);
+    let compare = include_bytes!("mtl.bin");
+    assert_eq!(slice, compare);
+    1
+}
+
+unsafe extern fn verify_aise(data: *const u8, length: usize) -> u32 {
+    let slice = slice::from_raw_parts(data, length);
+    let compare = include_bytes!("aise.bin");
+    assert_eq!(slice, compare);
+    1
+}
+
+unsafe extern fn verify_aice(data: *const u8, length: usize) -> u32 {
+    let slice = slice::from_raw_parts(data, length);
+    let compare = &[
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x16, 0x16, 0x16, 0x16, 0x00, 0x16, 0x16, 0x16,
+    ];
+    assert_eq!(slice, compare);
+    1
 }
