@@ -182,15 +182,15 @@ fn read_extended_data<T: File>(file: &mut T) -> Option<Vec<u8>> {
             let mut buf = [0u8; 4];
             file.read_exact(&mut buf).ok()?;
             let offset = LittleEndian::read_u32(&buf);
-            if offset >= current_offset as u32 {
+            if offset >= current_offset as u32 || offset < 0x100 {
                 break;
             }
             file.seek(SeekFrom::Start(offset as u64)).ok()?;
             let mut buf = [0u8; 8];
             file.read_exact(&mut buf).ok()?;
             let magic = LittleEndian::read_u32(&buf);
-            let size = LittleEndian::read_u32(&buf);
-            let expected_size = current_offset as u32 - offset - 4;
+            let size = LittleEndian::read_u32(&buf[4..]);
+            let expected_size = (current_offset as u32).checked_sub(offset)?.checked_sub(4)?;
             if magic != SAVE_MAGIC || size != expected_size {
                 break;
             }
@@ -199,8 +199,9 @@ fn read_extended_data<T: File>(file: &mut T) -> Option<Vec<u8>> {
             file.read_exact(&mut buf).ok()?;
             let ext = iter_extensions_from_data(buf).ok()?;
             let data_start = ext.buffer_pos;
+            let data_end = ext.buffer.len().checked_sub(4)?;
             header_buffer.extend_from_slice(&ext.buffer[0xc..data_start]);
-            data_buffer.extend_from_slice(&ext.buffer[data_start..]);
+            data_buffer.extend_from_slice(&ext.buffer[data_start..data_end]);
             chunk_count += ext.chunks.len();
             current_offset = file.seek(SeekFrom::Start(u64::from(offset - 4))).ok()?;
         }
