@@ -617,7 +617,7 @@ impl Drop for Context {
                     let mut files = OPEN_HOOKED_FILES.lock();
                     for i in 0..files.len() {
                         if files[i].0 as *mut c_void == file {
-                            Box::from_raw(files[i].0);
+                            drop(Box::from_raw(files[i].0));
                             files.remove(i);
                             if files.is_empty() {
                                 HAS_HOOKED_FILES_OPEN.store(false, Ordering::Relaxed);
@@ -752,6 +752,7 @@ pub fn init_1161() -> Context {
             active_iscript_objects,
             hook_ai_focus_disabled,
             hook_ai_focus_air,
+            unit_base_strength,
         };
         let mut patcher = PATCHER.lock();
         {
@@ -1516,6 +1517,14 @@ unsafe extern fn hook_ai_focus_air(
 ) -> u32 {
     context().ai_focus_air.push(hook);
     1
+}
+
+unsafe extern fn unit_base_strength() -> Option<unsafe extern fn(*mut *mut u32)> {
+    unsafe extern fn actual(out: *mut *mut u32) {
+        *out = bw::unit_strength.as_mut_ptr();
+        *out.add(1) = bw::unit_strength.as_mut_ptr().add(0xe4);
+    }
+    Some(actual)
 }
 
 unsafe extern fn misc_ui_state(out_size: usize) -> Option<unsafe extern fn(*mut u8)> {

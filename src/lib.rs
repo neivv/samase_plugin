@@ -8,7 +8,7 @@ use libc::c_void;
 use crate::commands::{CommandLength, IngameCommandHook};
 use crate::save::{SaveHook, LoadHook};
 
-pub const VERSION: u16 = 36;
+pub const VERSION: u16 = 37;
 
 #[repr(C)]
 pub struct ExtendedArray {
@@ -201,4 +201,6 @@ pub struct PluginApi {
     pub hook_ai_focus_air: unsafe extern fn(
         unsafe extern fn(*mut c_void, unsafe extern fn(*mut c_void))
     ) -> u32,
+    // out: 2 pointer array where [0] = *air*, [1] = *ground*
+    pub unit_base_strength: unsafe extern fn() -> Option<unsafe extern fn(*mut *mut u32)>,
 }

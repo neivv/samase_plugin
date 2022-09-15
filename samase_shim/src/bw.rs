@@ -134,6 +134,8 @@ whack_vars!(init_vars, 0x00400000,
     0x006D11FC => active_iscript_unit: *mut c_void;
     0x006D11F4 => active_iscript_flingy: *mut c_void;
     0x006D11F8 => active_iscript_bullet: *mut c_void;
+
+    0x006BB210 => unit_strength: [u32; 0xe4 * 2];
 );
 
 pub const AISCRIPT_OPCODE_CMP: usize = 0x0045B883;
