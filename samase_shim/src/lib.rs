@@ -1678,6 +1678,7 @@ unsafe extern fn hook_ingame_command(
                 is_replay: *bw::is_replay,
                 command_user: *bw::command_user,
                 unique_command_user: *bw::unique_command_user,
+                add_to_replay_data,
             };
             commands::ingame_hook(data, len, replayed, &globals, orig);
         }
@@ -1690,6 +1691,10 @@ unsafe extern fn hook_ingame_command(
         commands::add_length_override(cmd as u8, len);
     }
     1
+}
+
+unsafe extern fn add_to_replay_data(data: *const u8, length: usize) {
+    bw::add_to_replay_data(*bw::replay_data, *bw::storm_command_user, data, length)
 }
 
 unsafe extern fn dat_requirements() -> Option<unsafe extern fn(u32, u32) -> *const u16> {

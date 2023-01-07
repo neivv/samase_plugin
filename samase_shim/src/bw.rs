@@ -26,6 +26,8 @@ whack_funcs!(stdcall, init_funcs, 0x00400000,
     0x0043ABB0 => ai_attack_prepare(u32, u32, u32, u32, u32) -> u32;
     0x00463040 => give_ai(@eax *mut c_void);
 
+    0x004CDE70 => add_to_replay_data(@eax *mut c_void, u32, @ebx *const u8, @edi usize);
+
     0x004100C4 => SFileOpenFileEx(*mut c_void, *const u8, u32, *mut *mut c_void) -> u32;
     0x00410142 => SFileGetFileSize(*mut c_void, *mut u32) -> u32;
     0x004100B8 => SFileCloseFile(*mut c_void);
@@ -78,6 +80,7 @@ whack_vars!(init_vars, 0x00400000,
     0x0057F0B4 => is_multiplayer: u8;
     0x00512678 => command_user: u32;
     0x0051267C => unique_command_user: u32;
+    0x00512680 => storm_command_user: u32;
     0x005005F8 => command_lengths: [u32; 0x60];
     0x006284E8 => selections: [*mut Unit; 0xc * 0x8];
     0x00597208 => client_selection: [*mut Unit; 0xc];
@@ -86,6 +89,7 @@ whack_vars!(init_vars, 0x00400000,
     0x0068C0F8 => first_free_ai_script: *mut c_void;
     0x00685108 => guard_ais: [[*mut c_void; 0x2]; 0x8];
     0x006D5BFC => pathing: *mut c_void;
+    0x00596BBC => replay_data: *mut c_void;
 
     0x00513C30 => units_dat: [DatTable; 0x1];
     0x00513EC8 => orders_dat: [DatTable; 0x1];

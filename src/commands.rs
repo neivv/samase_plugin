@@ -4,8 +4,8 @@ use std::slice;
 
 use libc::c_void;
 use thread_local::ThreadLocal;
-use once_cell::sync::Lazy;
-use parking_lot::{Mutex, RwLock, const_mutex, const_rwlock};
+use once_cell::sync::{Lazy, OnceCell};
+use parking_lot::{Mutex, MutexGuard, RwLock, const_mutex, const_rwlock};
 
 // data, len, game player, unique player, orig
 pub type IngameCommandHook =
@@ -13,8 +13,72 @@ pub type IngameCommandHook =
 pub type CommandLength = unsafe extern fn(*const u8, u32) -> u32;
 
 static INGAME_HOOKS: RwLock<Vec<(u8, IngameCommandHook)>> = const_rwlock(Vec::new());
-static COMMAND_LENGTHS: RwLock<Vec<(u8, CommandLength)>> = const_rwlock(Vec::new());
-static DEFAULT_COMMAND_LENGTHS: Mutex<Vec<u32>> = const_mutex(Vec::new());
+static COMMAND_LENGTHS: OnceCell<&CommandLengths> = OnceCell::new();
+static COMMAND_LENGTHS_MUTABLE: Mutex<CommandLengths> = const_mutex(CommandLengths::new());
+
+pub struct CommandLengths {
+    /// Either < 0x400, or usize::MAX in which case it is taken as integer, otherwise
+    /// a function pointer.
+    data: [usize; 0x100],
+}
+
+impl CommandLengths {
+    const fn new() -> CommandLengths {
+        CommandLengths {
+            data: [usize::MAX; 0x100],
+        }
+    }
+
+    /// Returns value larger than cmd.len() on error (Usually usize::MAX)
+    pub fn command_len(&self, cmd: &[u8]) -> usize {
+        let id = cmd.get(0).copied().unwrap_or(0);
+        let value = self.data[id as usize];
+        if value < 0x400 {
+            return value;
+        } else {
+            unsafe {
+                let func: CommandLength = mem::transmute(value);
+                // sign extend just to get u32::MAX to usize::MAX for bit more consistency.
+                func(cmd.as_ptr(), cmd.len() as u32) as i32 as isize as usize
+            }
+        }
+    }
+}
+
+unsafe extern fn save_command_length(cmd: *const u8, len: u32) -> u32 {
+    let len = len as usize;
+    let mut pos = 5;
+    while pos < len {
+        if *cmd.add(pos) == 0 {
+            return (pos + 1) as u32;
+        }
+        pos += 1;
+    }
+    u32::MAX
+}
+
+unsafe extern fn select_command_legacy_length(cmd: *const u8, len: u32) -> u32 {
+    if len < 2 {
+        u32::MAX
+    } else {
+        (*cmd.add(1) as u32) * 2 + 2
+    }
+}
+
+unsafe extern fn select_command_extended_length(cmd: *const u8, len: u32) -> u32 {
+    if len < 2 {
+        u32::MAX
+    } else {
+        (*cmd.add(1) as u32) * 4 + 2
+    }
+}
+
+/// Will permamently lock the mutex on first access, preventing further mutation.
+pub fn get_command_lengths() -> &'static CommandLengths {
+    COMMAND_LENGTHS.get_or_init(|| {
+        MutexGuard::leak(COMMAND_LENGTHS_MUTABLE.lock())
+    })
+}
 
 static HOOK_CALL_STATE: Lazy<ThreadLocal<RefCell<Vec<HookCallState<'static>>>>> =
     Lazy::new(|| ThreadLocal::new());
@@ -33,6 +97,7 @@ pub struct IngameHookGlobals {
     pub is_replay: u32,
     pub unique_command_user: u32,
     pub command_user: u32,
+    pub add_to_replay_data: unsafe extern fn(*const u8, usize),
 }
 
 pub unsafe extern fn ingame_hook(
@@ -44,17 +109,21 @@ pub unsafe extern fn ingame_hook(
 ) {
     let data = slice::from_raw_parts(data as *const u8, len as usize);
     let hooks = INGAME_HOOKS.read();
-    let cmd_lengths = COMMAND_LENGTHS.read();
+    let cmd_lengths = get_command_lengths();
     let mut pos = data;
     while pos.len() > 0 {
         let skip = globals.is_replay != 0 && replayed_command == 0 && !is_replay_command(pos[0]);
-        let len = command_len(&cmd_lengths, pos);
+        let len = cmd_lengths.command_len(pos);
         if len > pos.len() {
             error!("Command {:x} too short for its length {:x}", pos[0], len);
             return;
         }
         if !skip {
-            handle_ingame_hooks(&hooks, &pos[..len], replayed_command, globals, orig);
+            let bytes = &pos[..len];
+            handle_ingame_hooks(&hooks, bytes, replayed_command, globals, orig);
+            if globals.is_replay == 0 && !is_replay_command(pos[0]) {
+                (globals.add_to_replay_data)(bytes.as_ptr(), len);
+            }
         }
         pos = &pos[len..];
     }
@@ -142,48 +211,31 @@ unsafe fn handle_ingame_hooks(
             return;
         }
     }
-    // TODO 0
     orig(cmd.as_ptr() as *const c_void, cmd.len() as u32, replayed_command);
 }
 
-unsafe fn command_len(overrides: &[(u8, CommandLength)], cmd: &[u8]) -> usize {
-    let id = cmd[0];
-    for &(other_id, len) in overrides {
-        if other_id == id {
-            return len(cmd.as_ptr(), cmd.len() as u32) as usize;
+/// Should be called before any function overrides are added for ones included in here.
+pub fn set_default_command_lengths(lengths: &[u32]) {
+    let mut out = COMMAND_LENGTHS_MUTABLE.lock();
+    for (i, &value) in lengths.iter().enumerate() {
+        if i >= 0x100 {
+            break;
+        }
+        if (value as usize) < 0x400 {
+            out.data[i] = value as usize;
         }
     }
-    match id {
-        0x6 | 0x7 => {
-            let mut pos = 5;
-            while pos < cmd.len() {
-                if cmd[pos] == 0 {
-                    return pos + 1;
-                }
-                pos += 1;
-            }
-            !0
-        }
-        0x9 | 0xa | 0xb => {
-            cmd.get(1).cloned().unwrap_or(12) as usize * 2 + 2
-        }
-        0x63 | 0x64 | 0x65 => {
-            cmd.get(1).cloned().unwrap_or(12) as usize * 4 + 2
-        }
-        _ => {
-            DEFAULT_COMMAND_LENGTHS.lock().get(id as usize).cloned()
-                .unwrap_or(!0) as usize
-        }
-    }
-}
-
-pub fn set_default_command_lengths(mut lengths: Vec<u32>) {
-    if let Some(sync) = lengths.get_mut(0x37) {
-        // This isn't set correctly for whatever reason, and it works out for bw since
-        // it's not replay skipped
-        *sync = 7;
-    }
-    *DEFAULT_COMMAND_LENGTHS.lock() = lengths;
+    out.data[0x6] = save_command_length as usize;
+    out.data[0x7] = save_command_length as usize;
+    out.data[0x9] = select_command_legacy_length as usize;
+    out.data[0xa] = select_command_legacy_length as usize;
+    out.data[0xb] = select_command_legacy_length as usize;
+    out.data[0x63] = select_command_extended_length as usize;
+    out.data[0x64] = select_command_extended_length as usize;
+    out.data[0x65] = select_command_extended_length as usize;
+    // This isn't set correctly for whatever reason, and it works out for bw since
+    // it's not replay skipped
+    out.data[0x37] = 7;
 }
 
 pub fn add_ingame_hook(cmd: u8, hook: IngameCommandHook) {
@@ -191,5 +243,6 @@ pub fn add_ingame_hook(cmd: u8, hook: IngameCommandHook) {
 }
 
 pub fn add_length_override(cmd: u8, fun: CommandLength) {
-    COMMAND_LENGTHS.write().push((cmd, fun));
+    let mut out = COMMAND_LENGTHS_MUTABLE.lock();
+    out.data[cmd as usize] = fun as usize;
 }

@@ -8,6 +8,8 @@ edition = "2021"
 byteorder = "1.2"
 flate2 = "1.0.1"
 libc = "0.2"
+# Publicly used dependency of parking_lot, but needs to be new enough for MutexGuard::leak
+lock_api = "0.4.9"
 log = "0.4"
 once_cell = "1.7"
 parking_lot = "0.12"
