@@ -753,6 +753,7 @@ pub fn init_1161() -> Context {
             hook_ai_focus_disabled,
             hook_ai_focus_air,
             unit_base_strength,
+            read_map_file,
         };
         let mut patcher = PATCHER.lock();
         {
@@ -1525,6 +1526,11 @@ unsafe extern fn unit_base_strength() -> Option<unsafe extern fn(*mut *mut u32)>
         *out.add(1) = bw::unit_strength.as_mut_ptr().add(0xe4);
     }
     Some(actual)
+}
+
+unsafe extern fn read_map_file() -> Option<unsafe extern fn(*const u8, *mut usize) -> *mut u8> {
+    // TODO
+    None
 }
 
 unsafe extern fn misc_ui_state(out_size: usize) -> Option<unsafe extern fn(*mut u8)> {
