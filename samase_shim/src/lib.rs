@@ -1700,7 +1700,10 @@ unsafe extern fn hook_ingame_command(
 }
 
 unsafe extern fn add_to_replay_data(data: *const u8, length: usize) {
-    bw::add_to_replay_data(*bw::replay_data, *bw::storm_command_user, data, length)
+    // No code to support replay data for extended commands :l
+    if *data.add(0) < 0x5d {
+        bw::add_to_replay_data(*bw::replay_data, *bw::storm_command_user, data, length);
+    }
 }
 
 unsafe extern fn dat_requirements() -> Option<unsafe extern fn(u32, u32) -> *const u16> {
