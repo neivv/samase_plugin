@@ -23,7 +23,7 @@ use samase_plugin::save::{SaveHook, LoadHook};
 mod bw;
 mod windows;
 
-pub use samase_plugin::PluginApi;
+pub use samase_plugin::{PluginApi, FuncId};
 
 static PATCHER: Mutex<whack::Patcher> = const_mutex(whack::Patcher::new());
 static FIRST_FILE_ACCESS_HOOKS: Mutex<Vec<unsafe extern fn()>> = const_mutex(Vec::new());
@@ -35,6 +35,15 @@ static CONTEXT: Lazy<ThreadLocal<RefCell<Option<InternalContext>>>> =
 static LAST_FILE_POINTER: Lazy<ThreadLocal<Cell<u64>>> = Lazy::new(|| ThreadLocal::new());
 
 static HAS_HOOKED_FILES_OPEN: AtomicBool = AtomicBool::new(false);
+
+type Hook1Arg = unsafe extern fn(usize, unsafe extern fn(usize) -> usize) -> usize;
+type Hook2Arg = unsafe extern fn(usize, usize, unsafe extern fn(usize, usize) -> usize) -> usize;
+type Hook3Arg = unsafe extern fn(usize, usize, usize,
+    unsafe extern fn(usize, usize, usize) -> usize) -> usize;
+type Hook4Arg = unsafe extern fn(usize, usize, usize, usize,
+    unsafe extern fn(usize, usize, usize, usize) -> usize) -> usize;
+type Hook5Arg = unsafe extern fn(usize, usize, usize, usize, usize,
+    unsafe extern fn(usize, usize, usize, usize, usize) -> usize) -> usize;
 
 struct FileReadHook {
     prefix: Vec<u8>,
@@ -116,6 +125,7 @@ struct InternalContext {
     >,
     ai_focus_disabled: Vec<unsafe extern fn(*mut c_void, unsafe extern fn(*mut c_void))>,
     ai_focus_air: Vec<unsafe extern fn(*mut c_void, unsafe extern fn(*mut c_void))>,
+    func_hooks: Vec<(FuncId, usize)>,
     save_extensions_used: bool,
 }
 
@@ -463,6 +473,55 @@ impl Drop for Context {
                     },
                 );
             }
+            for (func, hook) in ctx.func_hooks {
+                use samase_plugin::FuncId::*;
+
+                match func {
+                    UnitCanRally => {
+                        let hook: Hook1Arg = mem::transmute(hook);
+                        exe.hook_closure(bw::H_UnitCanRally, move |a, o| hook(a, o));
+                    }
+                    UnitCanBeInfested => {
+                        let hook: Hook1Arg = mem::transmute(hook);
+                        exe.hook_closure(bw::H_UnitCanBeInfested, move |a, o| hook(a, o));
+                    }
+                    DoMissileDamage => {
+                        let hook: Hook1Arg = mem::transmute(hook);
+                        exe.hook_closure(bw::H_DoMissileDamage, move |a, o| hook(a, o));
+                    }
+                    HitUnit => {
+                        let hook: Hook3Arg = mem::transmute(hook);
+                        exe.hook_closure(bw::H_HitUnit, move |a, b, c, o| hook(a, b, c, o));
+                    }
+                    HallucinationHit => {
+                        let hook: Hook4Arg = mem::transmute(hook);
+                        exe.hook_closure(
+                            bw::H_HallucinationHit,
+                            move |a, b, c, d, o| hook(a, b & 0xff, c & 0xff, d, o),
+                        );
+                    }
+                    DamageUnit => {
+                        let hook: Hook5Arg = mem::transmute(hook);
+                        exe.hook_closure(
+                            bw::H_DamageUnit,
+                            move |a, b, c, d, e, o| hook(a, b, c, d & 0xff, e & 0xff, o),
+                        );
+                    }
+                    KillUnit => {
+                        let hook: Hook1Arg = mem::transmute(hook);
+                        exe.hook_closure(bw::H_KillUnit, move |a, o| hook(a, o));
+                    }
+                    UnitSetHp => {
+                        let hook: Hook2Arg = mem::transmute(hook);
+                        exe.hook_closure(bw::H_UnitSetHp, move |a, b, o| hook(a, b, o));
+                    }
+                    TransformUnit => {
+                        let hook: Hook2Arg = mem::transmute(hook);
+                        exe.hook_closure(bw::H_TransformUnit, move |a, b, o| hook(a, b & 0xffff, o));
+                    }
+                    _Last => (),
+                }
+            }
 
             if !ctx.aiscript_hooks.is_empty() || !ctx.iscript_hooks.is_empty() {
                 // Heap gets leaked to keep the exec code alive
@@ -656,7 +715,7 @@ pub fn init_1161() -> Context {
         assert!(CONTEXT.get().is_none());
         let api = PluginApi {
             version: samase_plugin::VERSION,
-            padding: 0,
+            max_func_id: samase_plugin::MAX_FUNC_ID,
             free_memory,
             write_exe_memory,
             warn_unsupported_feature,
@@ -754,6 +813,8 @@ pub fn init_1161() -> Context {
             hook_ai_focus_air,
             unit_base_strength,
             read_map_file,
+            hook_func,
+            get_func,
         };
         let mut patcher = PATCHER.lock();
         {
@@ -1531,6 +1592,66 @@ unsafe extern fn unit_base_strength() -> Option<unsafe extern fn(*mut *mut u32)>
 unsafe extern fn read_map_file() -> Option<unsafe extern fn(*const u8, *mut usize) -> *mut u8> {
     // TODO
     None
+}
+
+unsafe extern fn hook_func(id: u16, hook: usize) -> u32 {
+    if id >= samase_plugin::MAX_FUNC_ID {
+        return 0;
+    }
+
+    let func: samase_plugin::FuncId = mem::transmute(id as u8);
+    context().func_hooks.push((func, hook));
+    1
+}
+
+#[allow(bad_style)]
+unsafe extern fn get_func(id: u16) -> Option<unsafe extern fn()> {
+    if id >= samase_plugin::MAX_FUNC_ID {
+        return None;
+    }
+
+    unsafe extern fn UnitCanRally(a: usize) -> usize {
+        bw::UnitCanRally(a)
+    }
+    unsafe extern fn UnitCanBeInfested(a: usize) -> usize {
+        bw::UnitCanBeInfested(a)
+    }
+    unsafe extern fn DoMissileDamage(a: usize) -> usize {
+        bw::DoMissileDamage(a)
+    }
+    unsafe extern fn HitUnit(a: usize, b: usize, c: usize) -> usize {
+        bw::HitUnit(a, b, c)
+    }
+    unsafe extern fn HallucinationHit(a: usize, b: usize, c: usize, d: usize) -> usize {
+        bw::HallucinationHit(a, b, c, d)
+    }
+    unsafe extern fn DamageUnit(a: usize, b: usize, c: usize, d: usize, e: usize) -> usize {
+        bw::DamageUnit(a, b, c, d, e)
+    }
+    unsafe extern fn KillUnit(a: usize) -> usize {
+        bw::KillUnit(a)
+    }
+    unsafe extern fn UnitSetHp(a: usize, b: usize) -> usize {
+        bw::UnitSetHp(a, b)
+    }
+    unsafe extern fn TransformUnit(a: usize, b: usize) -> usize {
+        bw::TransformUnit(a, b)
+    }
+
+    let func: samase_plugin::FuncId = mem::transmute(id as u8);
+    let value = match func {
+        FuncId::UnitCanRally => UnitCanRally as usize,
+        FuncId::UnitCanBeInfested => UnitCanBeInfested as usize,
+        FuncId::DoMissileDamage => DoMissileDamage as usize,
+        FuncId::HitUnit => HitUnit as usize,
+        FuncId::HallucinationHit => HallucinationHit as usize,
+        FuncId::DamageUnit => DamageUnit as usize,
+        FuncId::KillUnit => KillUnit as usize,
+        FuncId::UnitSetHp => UnitSetHp as usize,
+        FuncId::TransformUnit => TransformUnit as usize,
+        FuncId::_Last => 0,
+    };
+    mem::transmute(value)
 }
 
 unsafe extern fn misc_ui_state(out_size: usize) -> Option<unsafe extern fn(*mut u8)> {

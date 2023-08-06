@@ -8,7 +8,8 @@ use libc::c_void;
 use crate::commands::{CommandLength, IngameCommandHook};
 use crate::save::{SaveHook, LoadHook};
 
-pub const VERSION: u16 = 38;
+pub const VERSION: u16 = 39;
+pub const MAX_FUNC_ID: u16 = FuncId::_Last as u16;
 
 #[repr(C)]
 pub struct ExtendedArray {
@@ -21,7 +22,7 @@ pub struct ExtendedArray {
 #[repr(C)]
 pub struct PluginApi {
     pub version: u16,
-    pub padding: u16,
+    pub max_func_id: u16,
     pub free_memory: unsafe extern fn(*mut u8),
     pub write_exe_memory: unsafe extern fn(usize, *const u8, usize) -> u32,
     pub warn_unsupported_feature: unsafe extern fn(*const u8),
@@ -205,4 +206,37 @@ pub struct PluginApi {
     pub unit_base_strength: unsafe extern fn() -> Option<unsafe extern fn(*mut *mut u32)>,
     pub read_map_file:
         unsafe extern fn() -> Option<unsafe extern fn(*const u8, *mut usize) -> *mut u8>,
+    pub hook_func: unsafe extern fn(
+        // Func ID (enum)
+        u16,
+        // Hook function: Takes arguments and then original function callback.
+        // Casted from `unsafe extern fn(args..., unsafe extern fn(args...) -> ret) -> ret`
+        usize,
+    ) -> u32,
+    // Func ID -> func, will have to cast for expected calling convention
+    pub get_func: unsafe extern fn(u16) -> Option<unsafe extern fn()>,
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+pub enum FuncId {
+    // this = unit
+    UnitCanRally = 0,
+    // this = unit
+    UnitCanBeInfested,
+    // this = bullet
+    DoMissileDamage,
+    // this = target, bullet, damage_divisor
+    HitUnit,
+    // this = target, weapon_id, direction, attacker_unit
+    HallucinationHit,
+    // this = target, damage, attacker_unit, attacker_player, show_attacker
+    DamageUnit,
+    // this = unit
+    KillUnit,
+    // this = unit, value
+    UnitSetHp,
+    // this = unit, new_unit_id
+    TransformUnit,
+
+    _Last,
 }

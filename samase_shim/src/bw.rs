@@ -32,6 +32,16 @@ whack_funcs!(stdcall, init_funcs, 0x00400000,
     0x00410142 => SFileGetFileSize(*mut c_void, *mut u32) -> u32;
     0x004100B8 => SFileCloseFile(*mut c_void);
     0x00410148 => SFileReadFile(*mut c_void, *mut u8, u32, *mut u32, u32) -> u32;
+
+    0x0049FED0 => TransformUnit(@eax usize, usize) -> usize;
+    0x00475710 => KillUnit(@eax usize) -> usize;
+    0x00479730 => HallucinationHit(@eax usize, usize, usize, @esi usize) -> usize;
+    0x004797B0 => DamageUnit(@ecx usize, @eax usize, usize, usize, usize) -> usize;
+    0x00479AE0 => HitUnit(@eax usize, @edx usize, usize) -> usize;
+    0x0047B2E0 => UnitCanRally(@eax usize) -> usize;
+    0x00467340 => UnitSetHp(@eax usize, @ecx usize) -> usize;
+    0x00402210 => UnitCanBeInfested(@edx usize) -> usize;
+    0x0048B770 => DoMissileDamage(usize) -> usize;
 );
 
 whack_funcs!(init_funcs_cdecl, 0x00400000,
@@ -65,6 +75,16 @@ whack_hooks!(stdcall, 0x00400000,
     0x0043FC60 => AiStepRegion(@ecx u32, @eax u32);
     0x0043FF00 => AiFocusDisabled(@eax *mut c_void);
     0x0043FE50 => AiFocusAir(@esi *mut c_void);
+
+    0x0049FED0 => H_TransformUnit(@eax usize, usize) -> usize;
+    0x00475710 => H_KillUnit(@eax usize) -> usize;
+    0x00479730 => H_HallucinationHit(@eax usize, usize, usize, @esi usize) -> usize;
+    0x004797B0 => H_DamageUnit(@ecx usize, @eax usize, usize, usize, usize) -> usize;
+    0x00479AE0 => H_HitUnit(@eax usize, @edx usize, usize) -> usize;
+    0x0047B2E0 => H_UnitCanRally(@eax usize) -> usize;
+    0x00467340 => H_UnitSetHp(@eax usize, @ecx usize) -> usize;
+    0x00402210 => H_UnitCanBeInfested(@edx usize) -> usize;
+    0x0048B770 => H_DoMissileDamage(usize) -> usize;
 );
 
 whack_vars!(init_vars, 0x00400000,
