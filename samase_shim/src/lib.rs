@@ -23,7 +23,7 @@ use samase_plugin::save::{SaveHook, LoadHook};
 mod bw;
 mod windows;
 
-pub use samase_plugin::{PluginApi, FuncId};
+pub use samase_plugin::{PluginApi, FuncId, VarId};
 
 static PATCHER: Mutex<whack::Patcher> = const_mutex(whack::Patcher::new());
 static FIRST_FILE_ACCESS_HOOKS: Mutex<Vec<unsafe extern fn()>> = const_mutex(Vec::new());
@@ -815,6 +815,9 @@ pub fn init_1161() -> Context {
             read_map_file,
             hook_func,
             get_func,
+            load_vars,
+            read_vars,
+            write_vars,
         };
         let mut patcher = PATCHER.lock();
         {
@@ -1652,6 +1655,141 @@ unsafe extern fn get_func(id: u16) -> Option<unsafe extern fn()> {
         FuncId::_Last => 0,
     };
     mem::transmute(value)
+}
+
+fn var_result(var: VarId) -> u8 {
+    match var {
+        // Structures, assigning usize to struct isn't sensible
+        VarId::Game | VarId::AiRegions | VarId::PlayerAi |
+            VarId::FirstGuardAi | VarId::ActiveAiTowns | VarId::Selections |
+            VarId::ClientSelection | VarId::Players | VarId::SpriteHlines |
+            VarId::SpriteHlinesEnd | VarId::GameData | VarId::ReplayData | VarId::ReplayHeader |
+            VarId::FirstPlayerUnit | VarId::Units => 2,
+        // Writable variables
+        VarId::RngEnable | VarId::FirstActiveUnit | VarId::FirstHiddenUnit |
+            VarId::FirstAiScript | VarId::ScMainState | VarId::CommandUser |
+            VarId::UniqueCommandUser | VarId::IsReplay | VarId::LocalPlayerId |
+            VarId::LocalUniquePlayerId | VarId::IsMultiplayer | VarId::FirstFreeAiScript |
+            VarId::Pathing | VarId::LoadedSave | VarId::MapTileFlags | VarId::IscriptBin |
+            VarId::FirstActiveBullet | VarId::FirstLoneSprite | VarId::ScreenX |
+            VarId::ScreenY | VarId::FirstFowSprite | VarId::DrawCursorMarker |
+            VarId::IsPaused | VarId::IsTargeting | VarId::DatRequirementError |
+            VarId::IsPlacingBuilding | VarId::UnitShouldRevealArea |
+            VarId::ActiveIscriptFlingy | VarId::ActiveIscriptUnit |
+            VarId::ActiveIscriptBullet | VarId::RngSeed => 3,
+        // Unsure / SC:R only
+        VarId::Zoom | VarId::TooltipDrawFunc | VarId::GraphicLayers |
+            VarId::CmdIconsDdsGrp | VarId::CmdBtnsDdsGrp | VarId::StatusScreenMode |
+            VarId::Allocator | VarId::UnitsVector => 0,
+        VarId::_Last => 1,
+    }
+}
+
+fn var_addr_size(var: VarId) -> (usize, u32) {
+    match var {
+        VarId::Game => (0x0057F0F0, 0),
+        VarId::AiRegions => (0x0069A604, 0),
+        VarId::PlayerAi => (0x0068FEE8, 0),
+        VarId::Units => (0x0059CCA8, 0),
+        VarId::FirstGuardAi => (0x00685108, 0),
+        VarId::ActiveAiTowns => (0x006AA050, 0),
+        VarId::Selections => (0x006284E8, 0),
+        VarId::ClientSelection => (0x00597208, 0),
+        VarId::Players => (0x0057EEE0, 0),
+        VarId::SpriteHlines => (0x00629688, 0),
+        VarId::SpriteHlinesEnd => (0x00629288, 0),
+        VarId::GameData => (0x006D0F44, 0),
+        VarId::ReplayData => (0x00596BBC, 0),
+        VarId::ReplayHeader => (0x006D0F30, 0),
+        VarId::FirstPlayerUnit => (0x006283F8, 0),
+        // Writable variables
+        VarId::RngEnable => (0x006D11C8, 4),
+        VarId::FirstActiveUnit => (0x00628430, 4),
+        VarId::FirstHiddenUnit => (0x006283EC, 4),
+        VarId::FirstAiScript => (0x0068C100, 4),
+        VarId::FirstFreeAiScript => (0x0068C0F8, 4),
+        VarId::ScMainState => (0x00596904, 4),
+        VarId::CommandUser => (0x00512678, 4),
+        VarId::UniqueCommandUser => (0x0051267C, 4),
+        VarId::IsReplay => (0x006D0F14, 4),
+        VarId::LocalPlayerId => (0x00512684, 4),
+        VarId::LocalUniquePlayerId => (0x00512688, 4),
+        VarId::IsMultiplayer => (0x0057F0B4, 1),
+        VarId::Pathing => (0x006D5BFC, 4),
+        VarId::LoadedSave => (0x006D1218, 4),
+        VarId::MapTileFlags => (0x006D1260, 4),
+        VarId::IscriptBin => (0x006D1200, 4),
+        VarId::FirstActiveBullet => (0x0064DEC4, 4),
+        VarId::FirstLoneSprite => (0x00654874, 4),
+        VarId::ScreenX => (0x0062848C, 4),
+        VarId::ScreenY => (0x006284A8, 4),
+        VarId::FirstFowSprite => (0x00654868, 4),
+        VarId::DrawCursorMarker => (0x00652920, 1),
+        VarId::IsPaused => (0x006509C4, 4),
+        VarId::IsTargeting => (0x00641694, 1),
+        VarId::DatRequirementError => (0x0066FF60, 4),
+        VarId::IsPlacingBuilding => (0x00640880, 4),
+        VarId::UnitShouldRevealArea => (0x0066FF70, 4),
+        VarId::ActiveIscriptFlingy => (0x006D11F4, 4),
+        VarId::ActiveIscriptUnit => (0x006D11FC, 4),
+        VarId::ActiveIscriptBullet => (0x006D11F8, 4),
+        VarId::RngSeed => (0x0051CA14, 4),
+        // Unsure / SC:R only
+        VarId::Zoom | VarId::TooltipDrawFunc | VarId::GraphicLayers |
+            VarId::CmdIconsDdsGrp | VarId::CmdBtnsDdsGrp | VarId::StatusScreenMode |
+            VarId::Allocator | VarId::UnitsVector => (0, 0),
+        VarId::_Last => (0, 0),
+    }
+}
+
+unsafe extern fn load_vars(vars: *const u16, results: *mut u8, len: usize) {
+    let vars = std::slice::from_raw_parts(vars, len);
+    let results = std::slice::from_raw_parts_mut(results, len);
+    for i in 0..len {
+        if vars[i] >= samase_plugin::MAX_VAR_ID {
+            results[i] = 1;
+        } else {
+            let id: VarId = mem::transmute(vars[i]);
+            let result = var_result(id);
+            results[i] = result;
+        }
+    }
+}
+
+unsafe extern fn read_vars(vars: *const u16, results: *mut usize, len: usize) {
+    let vars = std::slice::from_raw_parts(vars, len);
+    let results = std::slice::from_raw_parts_mut(results, len);
+    for i in 0..len {
+        if vars[i] >= samase_plugin::MAX_VAR_ID {
+            results[i] = 0;
+        } else {
+            let id: VarId = mem::transmute(vars[i]);
+            let (result, size) = var_addr_size(id);
+            match size {
+                1 => results[i] = *(result as *mut u8) as usize,
+                2 => results[i] = *(result as *mut u16) as usize,
+                4 => results[i] = *(result as *mut u32) as usize,
+                _ => results[i] = result,
+            }
+        }
+    }
+}
+
+unsafe extern fn write_vars(vars: *const u16, values: *const usize, len: usize) {
+    let vars = std::slice::from_raw_parts(vars, len);
+    let values = std::slice::from_raw_parts(values, len);
+    for i in 0..len {
+        if vars[i] < samase_plugin::MAX_VAR_ID {
+            let id: VarId = mem::transmute(vars[i]);
+            let (result, size) = var_addr_size(id);
+            match size {
+                1 => *(result as *mut u8) = values[i] as u8,
+                2 => *(result as *mut u16) = values[i] as u16,
+                4 => *(result as *mut u32) = values[i] as u32,
+                _ => (),
+            }
+        }
+    }
 }
 
 unsafe extern fn misc_ui_state(out_size: usize) -> Option<unsafe extern fn(*mut u8)> {

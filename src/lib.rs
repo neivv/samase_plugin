@@ -8,8 +8,9 @@ use libc::c_void;
 use crate::commands::{CommandLength, IngameCommandHook};
 use crate::save::{SaveHook, LoadHook};
 
-pub const VERSION: u16 = 39;
+pub const VERSION: u16 = 40;
 pub const MAX_FUNC_ID: u16 = FuncId::_Last as u16;
+pub const MAX_VAR_ID: u16 = VarId::_Last as u16;
 
 #[repr(C)]
 pub struct ExtendedArray {
@@ -215,6 +216,14 @@ pub struct PluginApi {
     ) -> u32,
     // Func ID -> func, will have to cast for expected calling convention
     pub get_func: unsafe extern fn(u16) -> Option<unsafe extern fn()>,
+    // List of VarId, list of results, length of lists
+    // Result enum: 0 = Var not found, 1 = Not supported (Old samase),
+    //      2 = Read only, 3 = Read / write
+    pub load_vars: unsafe extern fn(*const u16, *mut u8, usize),
+    // List of VarId, list of results, length of lists
+    pub read_vars: unsafe extern fn(*const u16, *mut usize, usize),
+    // List of VarId, list of values, length of lists
+    pub write_vars: unsafe extern fn(*const u16, *const usize, usize),
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -237,6 +246,69 @@ pub enum FuncId {
     UnitSetHp,
     // this = unit, new_unit_id
     TransformUnit,
+
+    _Last,
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[repr(u16)]
+pub enum VarId {
+    Game = 0,
+    RngSeed,
+    RngEnable,
+    AiRegions,
+    PlayerAi,
+    FirstActiveUnit,
+    FirstHiddenUnit,
+    // *mut Unit, not *mut vector<Unit>
+    Units,
+    // *mut vector<Unit>
+    UnitsVector,
+    FirstAiScript,
+    FirstFreeAiScript,
+    FirstGuardAi,
+    ActiveAiTowns,
+    Pathing,
+    Selections,
+    ClientSelection,
+    LoadedSave,
+    MapTileFlags,
+    Players,
+    IscriptBin,
+    SpriteHlines,
+    SpriteHlinesEnd,
+    FirstActiveBullet,
+    FirstLoneSprite,
+    ScreenX,
+    ScreenY,
+    Zoom,
+    FirstFowSprite,
+    DrawCursorMarker,
+    IsPaused,
+    IsTargeting,
+    IsPlacingBuilding,
+    TooltipDrawFunc,
+    GraphicLayers,
+    ActiveIscriptFlingy,
+    ActiveIscriptUnit,
+    ActiveIscriptBullet,
+    CmdIconsDdsGrp,
+    CmdBtnsDdsGrp,
+    StatusScreenMode,
+    DatRequirementError,
+    FirstPlayerUnit,
+    UnitShouldRevealArea,
+    Allocator,
+    GameData,
+    ReplayData,
+    ReplayHeader,
+    ScMainState,
+    CommandUser,
+    UniqueCommandUser,
+    IsReplay,
+    LocalPlayerId,
+    LocalUniquePlayerId,
+    IsMultiplayer,
 
     _Last,
 }
