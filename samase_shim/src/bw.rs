@@ -42,6 +42,7 @@ whack_funcs!(stdcall, init_funcs, 0x00400000,
     0x00467340 => UnitSetHp(@eax usize, @ecx usize) -> usize;
     0x00402210 => UnitCanBeInfested(@edx usize) -> usize;
     0x0048B770 => DoMissileDamage(usize) -> usize;
+    0x004C8040 => GiveUnit(usize, usize) -> usize;
 );
 
 whack_funcs!(init_funcs_cdecl, 0x00400000,
@@ -85,6 +86,7 @@ whack_hooks!(stdcall, 0x00400000,
     0x00467340 => H_UnitSetHp(@eax usize, @ecx usize) -> usize;
     0x00402210 => H_UnitCanBeInfested(@edx usize) -> usize;
     0x0048B770 => H_DoMissileDamage(usize) -> usize;
+    0x004C8040 => H_GiveUnit(usize, usize) -> usize;
 );
 
 whack_vars!(init_vars, 0x00400000,

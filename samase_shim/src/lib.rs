@@ -519,6 +519,10 @@ impl Drop for Context {
                         let hook: Hook2Arg = mem::transmute(hook);
                         exe.hook_closure(bw::H_TransformUnit, move |a, b, o| hook(a, b & 0xffff, o));
                     }
+                    GiveUnit => {
+                        let hook: Hook2Arg = mem::transmute(hook);
+                        exe.hook_closure(bw::H_GiveUnit, move |a, b, o| hook(a, b & 0xff, o));
+                    }
                     _Last => (),
                 }
             }
@@ -1640,6 +1644,9 @@ unsafe extern fn get_func(id: u16) -> Option<unsafe extern fn()> {
     unsafe extern fn TransformUnit(a: usize, b: usize) -> usize {
         bw::TransformUnit(a, b)
     }
+    unsafe extern fn GiveUnit(a: usize, b: usize) -> usize {
+        bw::GiveUnit(a, b)
+    }
 
     let func: samase_plugin::FuncId = mem::transmute(id as u8);
     let value = match func {
@@ -1652,6 +1659,7 @@ unsafe extern fn get_func(id: u16) -> Option<unsafe extern fn()> {
         FuncId::KillUnit => KillUnit as usize,
         FuncId::UnitSetHp => UnitSetHp as usize,
         FuncId::TransformUnit => TransformUnit as usize,
+        FuncId::GiveUnit => GiveUnit as usize,
         FuncId::_Last => 0,
     };
     mem::transmute(value)

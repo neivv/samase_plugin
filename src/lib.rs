@@ -246,6 +246,8 @@ pub enum FuncId {
     UnitSetHp,
     // this = unit, new_unit_id
     TransformUnit,
+    // a1 = unit, player
+    GiveUnit,
 
     _Last,
 }
