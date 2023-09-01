@@ -311,6 +311,13 @@ pub enum VarId {
     LocalPlayerId,
     LocalUniquePlayerId,
     IsMultiplayer,
+    LastLoneSprite,
+    FirstFreeLoneSprite,
+    LastFreeLoneSprite,
+    LastFowSprite,
+    FirstFreeFowSprite,
+    LastFreeFowSprite,
+    CursorMarker,
 
     _Last,
 }

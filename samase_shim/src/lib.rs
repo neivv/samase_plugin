@@ -1684,7 +1684,9 @@ fn var_result(var: VarId) -> u8 {
             VarId::IsPaused | VarId::IsTargeting | VarId::DatRequirementError |
             VarId::IsPlacingBuilding | VarId::UnitShouldRevealArea |
             VarId::ActiveIscriptFlingy | VarId::ActiveIscriptUnit |
-            VarId::ActiveIscriptBullet | VarId::RngSeed => 3,
+            VarId::ActiveIscriptBullet | VarId::RngSeed | VarId::LastLoneSprite |
+            VarId::FirstFreeLoneSprite | VarId::LastFreeLoneSprite | VarId::LastFowSprite |
+            VarId::FirstFreeFowSprite | VarId::LastFreeFowSprite | VarId::CursorMarker => 3,
         // Unsure / SC:R only
         VarId::Zoom | VarId::TooltipDrawFunc | VarId::GraphicLayers |
             VarId::CmdIconsDdsGrp | VarId::CmdBtnsDdsGrp | VarId::StatusScreenMode |
@@ -1742,6 +1744,13 @@ fn var_addr_size(var: VarId) -> (usize, u32) {
         VarId::ActiveIscriptUnit => (0x006D11FC, 4),
         VarId::ActiveIscriptBullet => (0x006D11F8, 4),
         VarId::RngSeed => (0x0051CA14, 4),
+        VarId::LastLoneSprite => (0x0065291C, 4),
+        VarId::FirstFreeLoneSprite => (0x00654878, 4),
+        VarId::LastFreeLoneSprite => (0x0065487C, 4),
+        VarId::LastFowSprite => (0x0065486C, 4),
+        VarId::FirstFreeFowSprite => (0x006509D0, 4),
+        VarId::LastFreeFowSprite => (0x00654870, 4),
+        VarId::CursorMarker => (0x00652918, 4),
         // Unsure / SC:R only
         VarId::Zoom | VarId::TooltipDrawFunc | VarId::GraphicLayers |
             VarId::CmdIconsDdsGrp | VarId::CmdBtnsDdsGrp | VarId::StatusScreenMode |
