@@ -43,6 +43,8 @@ whack_funcs!(stdcall, init_funcs, 0x00400000,
     0x00402210 => UnitCanBeInfested(@edx usize) -> usize;
     0x0048B770 => DoMissileDamage(usize) -> usize;
     0x004C8040 => GiveUnit(usize, usize) -> usize;
+    0x0045CD50 => PlaceCreepRect(usize, usize, usize, usize, usize) -> usize;
+    0x0045CE90 => PlaceFinishedUnitCreep(@ecx usize, usize, usize) -> usize;
 );
 
 whack_funcs!(init_funcs_cdecl, 0x00400000,
@@ -87,6 +89,8 @@ whack_hooks!(stdcall, 0x00400000,
     0x00402210 => H_UnitCanBeInfested(@edx usize) -> usize;
     0x0048B770 => H_DoMissileDamage(usize) -> usize;
     0x004C8040 => H_GiveUnit(usize, usize) -> usize;
+    0x0045CD50 => H_PlaceCreepRect(usize, usize, usize, usize, usize) -> usize;
+    0x0045CE90 => H_PlaceFinishedUnitCreep(@ecx usize, usize, usize) -> usize;
 );
 
 whack_vars!(init_vars, 0x00400000,

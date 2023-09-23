@@ -248,6 +248,10 @@ pub enum FuncId {
     TransformUnit,
     // a1 = unit, player
     GiveUnit,
+    // a1 x_tile, y_tile, w_tile, h_tile, bool_round_corners
+    PlaceCreepRect,
+    // a1 = unit_id, x, y
+    PlaceFinishedUnitCreep,
 
     _Last,
 }

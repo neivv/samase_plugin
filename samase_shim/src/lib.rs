@@ -523,6 +523,20 @@ impl Drop for Context {
                         let hook: Hook2Arg = mem::transmute(hook);
                         exe.hook_closure(bw::H_GiveUnit, move |a, b, o| hook(a, b & 0xff, o));
                     }
+                    PlaceCreepRect => {
+                        let hook: Hook5Arg = mem::transmute(hook);
+                        exe.hook_closure(
+                            bw::H_PlaceCreepRect,
+                            move |a, b, c, d, e, o| hook(a, b, c, d, e & 0xff, o),
+                        );
+                    }
+                    PlaceFinishedUnitCreep => {
+                        let hook: Hook3Arg = mem::transmute(hook);
+                        exe.hook_closure(
+                            bw::H_PlaceFinishedUnitCreep,
+                            move |a, b, c, o| hook(a & 0xffff, b & 0xffff, c & 0xffff, o),
+                        );
+                    }
                     _Last => (),
                 }
             }
@@ -1647,6 +1661,12 @@ unsafe extern fn get_func(id: u16) -> Option<unsafe extern fn()> {
     unsafe extern fn GiveUnit(a: usize, b: usize) -> usize {
         bw::GiveUnit(a, b)
     }
+    unsafe extern fn PlaceCreepRect(a: usize, b: usize, c: usize, d: usize, e: usize) -> usize {
+        bw::PlaceCreepRect(a, b, c, d, e)
+    }
+    unsafe extern fn PlaceFinishedUnitCreep(a: usize, b: usize, c: usize) -> usize {
+        bw::PlaceFinishedUnitCreep(a, b, c)
+    }
 
     let func: samase_plugin::FuncId = mem::transmute(id as u8);
     let value = match func {
@@ -1660,6 +1680,8 @@ unsafe extern fn get_func(id: u16) -> Option<unsafe extern fn()> {
         FuncId::UnitSetHp => UnitSetHp as usize,
         FuncId::TransformUnit => TransformUnit as usize,
         FuncId::GiveUnit => GiveUnit as usize,
+        FuncId::PlaceCreepRect => PlaceCreepRect as usize,
+        FuncId::PlaceFinishedUnitCreep => PlaceFinishedUnitCreep as usize,
         FuncId::_Last => 0,
     };
     mem::transmute(value)
