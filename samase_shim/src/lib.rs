@@ -537,6 +537,55 @@ impl Drop for Context {
                             move |a, b, c, o| hook(a & 0xffff, b & 0xffff, c & 0xffff, o),
                         );
                     }
+                    AddAiToTrainedUnit => {
+                        let hook: Hook2Arg = mem::transmute(hook);
+                        exe.hook_closure(
+                            bw::H_AddAiToTrainedUnit,
+                            move |a, b, o| hook(a, b, o),
+                        );
+                    }
+                    AddBuildingAi => {
+                        let hook: Hook2Arg = mem::transmute(hook);
+                        exe.hook_closure(
+                            bw::H_AddBuildingAi,
+                            move |a, b, o| hook(a, b, o),
+                        );
+                    }
+                    AddTownUnitAi => {
+                        let hook: Hook2Arg = mem::transmute(hook);
+                        exe.hook_closure(
+                            bw::H_AddTownUnitAi,
+                            move |a, b, o| hook(a, b, o),
+                        );
+                    }
+                    AddMilitaryAi => {
+                        let hook: Hook3Arg = mem::transmute(hook);
+                        exe.hook_closure(
+                            bw::H_AddMilitaryAi,
+                            move |a, b, c, o| hook(a, b, c & 0xff, o),
+                        );
+                    }
+                    AiRemoveUnit => {
+                        let hook: Hook2Arg = mem::transmute(hook);
+                        exe.hook_closure(
+                            bw::H_AiRemoveUnit,
+                            move |a, b, o| hook(a, b & 0xff, o),
+                        );
+                    }
+                    AiRemoveUnitMilitary => {
+                        let hook: Hook2Arg = mem::transmute(hook);
+                        exe.hook_closure(
+                            bw::H_AiRemoveUnitMilitary,
+                            move |a, b, o| hook(a, b & 0xff, o),
+                        );
+                    }
+                    AiRemoveUnitTown => {
+                        let hook: Hook2Arg = mem::transmute(hook);
+                        exe.hook_closure(
+                            bw::H_AiRemoveUnitTown,
+                            move |a, b, o| hook(a, b & 0xff, o),
+                        );
+                    }
                     _Last => (),
                 }
             }
@@ -1667,6 +1716,27 @@ unsafe extern fn get_func(id: u16) -> Option<unsafe extern fn()> {
     unsafe extern fn PlaceFinishedUnitCreep(a: usize, b: usize, c: usize) -> usize {
         bw::PlaceFinishedUnitCreep(a, b, c)
     }
+    unsafe extern fn AddAiToTrainedUnit(a: usize, b: usize) -> usize {
+        bw::AddAiToTrainedUnit(a, b)
+    }
+    unsafe extern fn AddBuildingAi(a: usize, b: usize) -> usize {
+        bw::AddBuildingAi(a, b)
+    }
+    unsafe extern fn AddTownUnitAi(a: usize, b: usize) -> usize {
+        bw::AddTownUnitAi(a, b)
+    }
+    unsafe extern fn AddMilitaryAi(a: usize, b: usize, c: usize) -> usize {
+        bw::AddMilitaryAi(a, b, c)
+    }
+    unsafe extern fn AiRemoveUnit(a: usize, b: usize) -> usize {
+        bw::AiRemoveUnit(a, b)
+    }
+    unsafe extern fn AiRemoveUnitMilitary(a: usize, b: usize) -> usize {
+        bw::AiRemoveUnitMilitary(a, b)
+    }
+    unsafe extern fn AiRemoveUnitTown(a: usize, b: usize) -> usize {
+        bw::AiRemoveUnitTown(a, b)
+    }
 
     let func: samase_plugin::FuncId = mem::transmute(id as u8);
     let value = match func {
@@ -1682,6 +1752,13 @@ unsafe extern fn get_func(id: u16) -> Option<unsafe extern fn()> {
         FuncId::GiveUnit => GiveUnit as usize,
         FuncId::PlaceCreepRect => PlaceCreepRect as usize,
         FuncId::PlaceFinishedUnitCreep => PlaceFinishedUnitCreep as usize,
+        FuncId::AddAiToTrainedUnit => AddAiToTrainedUnit as usize,
+        FuncId::AddBuildingAi => AddBuildingAi as usize,
+        FuncId::AddTownUnitAi => AddTownUnitAi as usize,
+        FuncId::AddMilitaryAi => AddMilitaryAi as usize,
+        FuncId::AiRemoveUnit => AiRemoveUnit as usize,
+        FuncId::AiRemoveUnitMilitary => AiRemoveUnitMilitary as usize,
+        FuncId::AiRemoveUnitTown => AiRemoveUnitTown as usize,
         FuncId::_Last => 0,
     };
     mem::transmute(value)
@@ -1694,7 +1771,7 @@ fn var_result(var: VarId) -> u8 {
             VarId::FirstGuardAi | VarId::ActiveAiTowns | VarId::Selections |
             VarId::ClientSelection | VarId::Players | VarId::SpriteHlines |
             VarId::SpriteHlinesEnd | VarId::GameData | VarId::ReplayData | VarId::ReplayHeader |
-            VarId::FirstPlayerUnit | VarId::Units => 2,
+            VarId::FirstPlayerUnit | VarId::Units | VarId::ResourceAreas => 2,
         // Writable variables
         VarId::RngEnable | VarId::FirstActiveUnit | VarId::FirstHiddenUnit |
             VarId::FirstAiScript | VarId::ScMainState | VarId::CommandUser |
@@ -1734,6 +1811,7 @@ fn var_addr_size(var: VarId) -> (usize, u32) {
         VarId::ReplayData => (0x00596BBC, 0),
         VarId::ReplayHeader => (0x006D0F30, 0),
         VarId::FirstPlayerUnit => (0x006283F8, 0),
+        VarId::ResourceAreas => (0x00692688, 0),
         // Writable variables
         VarId::RngEnable => (0x006D11C8, 4),
         VarId::FirstActiveUnit => (0x00628430, 4),

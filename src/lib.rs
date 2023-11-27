@@ -248,10 +248,24 @@ pub enum FuncId {
     TransformUnit,
     // a1 = unit, player
     GiveUnit,
-    // a1 x_tile, y_tile, w_tile, h_tile, bool_round_corners
+    // a1 = x_tile, y_tile, w_tile, h_tile, bool_round_corners
     PlaceCreepRect,
     // a1 = unit_id, x, y
     PlaceFinishedUnitCreep,
+    // a1 = parent_unit, unit (a1 == a2 if unit morph)
+    AddAiToTrainedUnit,
+    // a1 = parent_unit, unit (a1 == a2 if unit morph)
+    AddBuildingAi,
+    // a1 town, unit
+    AddTownUnitAi,
+    // a1 = ai_region, unit, bool_always_use_this_region (Otherwise won't if region.state == 3)
+    AddMilitaryAi,
+    // a1 = unit, bool_was_killed
+    AiRemoveUnit,
+    // a1 = unit, bool_was_killed
+    AiRemoveUnitMilitary,
+    // a1 = unit, bool_for_finished_unit_morph (Force BuildingAi deletion and never delete town)
+    AiRemoveUnitTown,
 
     _Last,
 }
@@ -322,6 +336,7 @@ pub enum VarId {
     FirstFreeFowSprite,
     LastFreeFowSprite,
     CursorMarker,
+    ResourceAreas,
 
     _Last,
 }

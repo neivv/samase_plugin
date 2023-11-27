@@ -45,6 +45,13 @@ whack_funcs!(stdcall, init_funcs, 0x00400000,
     0x004C8040 => GiveUnit(usize, usize) -> usize;
     0x0045CD50 => PlaceCreepRect(usize, usize, usize, usize, usize) -> usize;
     0x0045CE90 => PlaceFinishedUnitCreep(@ecx usize, usize, usize) -> usize;
+    0x004A2830 => AddAiToTrainedUnit(@ecx usize, @eax usize) -> usize;
+    0x00435770 => AddBuildingAi(@ecx usize, @eax usize) -> usize;
+    0x00433DD0 => AddTownUnitAi(@edi usize, @ebx usize) -> usize;
+    0x0043DA20 => AddMilitaryAi(@eax usize, @ebx usize, usize) -> usize;
+    0x004A1E50 => AiRemoveUnit(@ecx usize, @edx usize) -> usize;
+    0x00439D60 => AiRemoveUnitMilitary(usize, usize) -> usize;
+    0x00434C90 => AiRemoveUnitTown(@edi usize, usize) -> usize;
 );
 
 whack_funcs!(init_funcs_cdecl, 0x00400000,
@@ -91,6 +98,13 @@ whack_hooks!(stdcall, 0x00400000,
     0x004C8040 => H_GiveUnit(usize, usize) -> usize;
     0x0045CD50 => H_PlaceCreepRect(usize, usize, usize, usize, usize) -> usize;
     0x0045CE90 => H_PlaceFinishedUnitCreep(@ecx usize, usize, usize) -> usize;
+    0x004A2830 => H_AddAiToTrainedUnit(@ecx usize, @eax usize) -> usize;
+    0x00435770 => H_AddBuildingAi(@ecx usize, @eax usize) -> usize;
+    0x00433DD0 => H_AddTownUnitAi(@edi usize, @ebx usize) -> usize;
+    0x0043DA20 => H_AddMilitaryAi(@eax usize, @ebx usize, usize) -> usize;
+    0x004A1E50 => H_AiRemoveUnit(@ecx usize, @edx usize) -> usize;
+    0x00439D60 => H_AiRemoveUnitMilitary(usize, usize) -> usize;
+    0x00434C90 => H_AiRemoveUnitTown(@edi usize, usize) -> usize;
 );
 
 whack_vars!(init_vars, 0x00400000,
