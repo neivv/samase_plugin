@@ -266,6 +266,14 @@ pub enum FuncId {
     AiRemoveUnitMilitary,
     // a1 = unit, bool_for_finished_unit_morph (Force BuildingAi deletion and never delete town)
     AiRemoveUnitTown,
+    // this = unit, returns 256 * displayed value
+    UnitMaxEnergy,
+    // this = unit, weapon_id
+    UnitAttackRange,
+    // this = unit
+    UnitTargetAcquisitionRange,
+    // this = unit, bool_ignore_blind
+    UnitSightRange,
 
     _Last,
 }

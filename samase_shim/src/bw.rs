@@ -52,6 +52,10 @@ whack_funcs!(stdcall, init_funcs, 0x00400000,
     0x004A1E50 => AiRemoveUnit(@ecx usize, @edx usize) -> usize;
     0x00439D60 => AiRemoveUnitMilitary(usize, usize) -> usize;
     0x00434C90 => AiRemoveUnitTown(@edi usize, usize) -> usize;
+    0x00491870 => UnitMaxEnergy(@eax usize) -> usize;
+    0x00475870 => UnitAttackRange(@eax usize, @ebx usize) -> usize;
+    0x00476000 => UnitTargetAcquisitionRange(@edx usize) -> usize;
+    0x004E5B40 => UnitSightRange(@edx usize, usize) -> usize;
 );
 
 whack_funcs!(init_funcs_cdecl, 0x00400000,
@@ -105,6 +109,10 @@ whack_hooks!(stdcall, 0x00400000,
     0x004A1E50 => H_AiRemoveUnit(@ecx usize, @edx usize) -> usize;
     0x00439D60 => H_AiRemoveUnitMilitary(usize, usize) -> usize;
     0x00434C90 => H_AiRemoveUnitTown(@edi usize, usize) -> usize;
+    0x00491870 => H_UnitMaxEnergy(@eax usize) -> usize;
+    0x00475870 => H_UnitAttackRange(@eax usize, @ebx usize) -> usize;
+    0x00476000 => H_UnitTargetAcquisitionRange(@edx usize) -> usize;
+    0x004E5B40 => H_UnitSightRange(@edx usize, usize) -> usize;
 );
 
 whack_vars!(init_vars, 0x00400000,

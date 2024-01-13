@@ -586,6 +586,34 @@ impl Drop for Context {
                             move |a, b, o| hook(a, b & 0xff, o),
                         );
                     }
+                    UnitMaxEnergy => {
+                        let hook: Hook1Arg = mem::transmute(hook);
+                        exe.hook_closure(
+                            bw::H_UnitMaxEnergy,
+                            move |a, o| hook(a, o),
+                        );
+                    }
+                    UnitAttackRange => {
+                        let hook: Hook2Arg = mem::transmute(hook);
+                        exe.hook_closure(
+                            bw::H_UnitAttackRange,
+                            move |a, b, o| hook(a, b & 0xffff, o),
+                        );
+                    }
+                    UnitTargetAcquisitionRange => {
+                        let hook: Hook1Arg = mem::transmute(hook);
+                        exe.hook_closure(
+                            bw::H_UnitTargetAcquisitionRange,
+                            move |a, o| hook(a, o),
+                        );
+                    }
+                    UnitSightRange => {
+                        let hook: Hook2Arg = mem::transmute(hook);
+                        exe.hook_closure(
+                            bw::H_UnitSightRange,
+                            move |a, b, o| hook(a, b & 0xff, o),
+                        );
+                    }
                     _Last => (),
                 }
             }
@@ -1737,6 +1765,18 @@ unsafe extern fn get_func(id: u16) -> Option<unsafe extern fn()> {
     unsafe extern fn AiRemoveUnitTown(a: usize, b: usize) -> usize {
         bw::AiRemoveUnitTown(a, b)
     }
+    unsafe extern fn UnitMaxEnergy(a: usize) -> usize {
+        bw::UnitMaxEnergy(a)
+    }
+    unsafe extern fn UnitAttackRange(a: usize, b: usize) -> usize {
+        bw::UnitAttackRange(a, b)
+    }
+    unsafe extern fn UnitTargetAcquisitionRange(a: usize) -> usize {
+        bw::UnitTargetAcquisitionRange(a)
+    }
+    unsafe extern fn UnitSightRange(a: usize, b: usize) -> usize {
+        bw::UnitSightRange(a, b)
+    }
 
     let func: samase_plugin::FuncId = mem::transmute(id as u8);
     let value = match func {
@@ -1759,6 +1799,10 @@ unsafe extern fn get_func(id: u16) -> Option<unsafe extern fn()> {
         FuncId::AiRemoveUnit => AiRemoveUnit as usize,
         FuncId::AiRemoveUnitMilitary => AiRemoveUnitMilitary as usize,
         FuncId::AiRemoveUnitTown => AiRemoveUnitTown as usize,
+        FuncId::UnitMaxEnergy => UnitMaxEnergy as usize,
+        FuncId::UnitAttackRange => UnitAttackRange as usize,
+        FuncId::UnitTargetAcquisitionRange => UnitTargetAcquisitionRange as usize,
+        FuncId::UnitSightRange => UnitSightRange as usize,
         FuncId::_Last => 0,
     };
     mem::transmute(value)
