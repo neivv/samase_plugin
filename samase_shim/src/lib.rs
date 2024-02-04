@@ -44,6 +44,10 @@ type Hook4Arg = unsafe extern fn(usize, usize, usize, usize,
     unsafe extern fn(usize, usize, usize, usize) -> usize) -> usize;
 type Hook5Arg = unsafe extern fn(usize, usize, usize, usize, usize,
     unsafe extern fn(usize, usize, usize, usize, usize) -> usize) -> usize;
+type Hook6Arg = unsafe extern fn(usize, usize, usize, usize, usize, usize,
+    unsafe extern fn(usize, usize, usize, usize, usize, usize) -> usize) -> usize;
+type Hook7Arg = unsafe extern fn(usize, usize, usize, usize, usize, usize, usize,
+    unsafe extern fn(usize, usize, usize, usize, usize, usize, usize) -> usize) -> usize;
 
 struct FileReadHook {
     prefix: Vec<u8>,
@@ -612,6 +616,54 @@ impl Drop for Context {
                         exe.hook_closure(
                             bw::H_UnitSightRange,
                             move |a, b, o| hook(a, b & 0xff, o),
+                        );
+                    }
+                    CheckWeaponTargetingFlags => {
+                        let hook: Hook3Arg = mem::transmute(hook);
+                        exe.hook_closure(
+                            bw::H_CheckWeaponTargetingFlags,
+                            move |a, b, c, o| hook(a, b & 0xff, c, o),
+                        );
+                    }
+                    CheckTechTargeting => {
+                        let hook: Hook7Arg = mem::transmute(hook);
+                        exe.hook_closure(
+                            bw::H_CheckTechTargeting,
+                            move |a, b, c, d, e, f, g, o| {
+                                hook(a, b & 0xff, c, d & 0xffff, e & 0xffff, f & 0xffff, g, o)
+                            }
+                        );
+                    }
+                    CheckOrderTargeting => {
+                        let hook: Hook6Arg = mem::transmute(hook);
+                        exe.hook_closure(
+                            bw::H_CheckOrderTargeting,
+                            move |a, b, c, d, e, f, o| {
+                                hook(a, b & 0xff, c, d & 0xffff, e & 0xffff, f, o)
+                            }
+                        );
+                    }
+                    CheckFowOrderTargeting => {
+                        let hook: Hook6Arg = mem::transmute(hook);
+                        exe.hook_closure(
+                            bw::H_CheckFowOrderTargeting,
+                            move |a, b, c, d, e, f, o| {
+                                hook(a, b & 0xff, c & 0xffff, d & 0xffff, e & 0xffff, f, o)
+                            }
+                        );
+                    }
+                    HideUnit => {
+                        let hook: Hook1Arg = mem::transmute(hook);
+                        exe.hook_closure(
+                            bw::H_HideUnit,
+                            move |a, o| hook(a, o),
+                        );
+                    }
+                    ShowUnit => {
+                        let hook: Hook1Arg = mem::transmute(hook);
+                        exe.hook_closure(
+                            bw::H_ShowUnit,
+                            move |a, o| hook(a, o),
                         );
                     }
                     _Last => (),
@@ -1777,6 +1829,30 @@ unsafe extern fn get_func(id: u16) -> Option<unsafe extern fn()> {
     unsafe extern fn UnitSightRange(a: usize, b: usize) -> usize {
         bw::UnitSightRange(a, b)
     }
+    unsafe extern fn CheckWeaponTargetingFlags(a: usize, b: usize, c: usize) -> usize {
+        bw::CheckWeaponTargetingFlags(a, b, c)
+    }
+    unsafe extern fn CheckTechTargeting(
+        a: usize, b: usize, c: usize, d: usize, e: usize, f: usize, g: usize
+    ) -> usize {
+        bw::CheckTechTargeting(a, b, c, d, e, f, g)
+    }
+    unsafe extern fn CheckOrderTargeting(
+        a: usize, b: usize, c: usize, d: usize, e: usize, f: usize,
+    ) -> usize {
+        bw::CheckOrderTargeting(a, b, c, d, e, f)
+    }
+    unsafe extern fn CheckFowOrderTargeting(
+        a: usize, b: usize, c: usize, d: usize, e: usize, f: usize,
+    ) -> usize {
+        bw::CheckFowOrderTargeting(a, b, c, d, e, f)
+    }
+    unsafe extern fn HideUnit(a: usize) -> usize {
+        bw::HideUnit(a)
+    }
+    unsafe extern fn ShowUnit(a: usize) -> usize {
+        bw::ShowUnit(a)
+    }
 
     let func: samase_plugin::FuncId = mem::transmute(id as u8);
     let value = match func {
@@ -1803,6 +1879,12 @@ unsafe extern fn get_func(id: u16) -> Option<unsafe extern fn()> {
         FuncId::UnitAttackRange => UnitAttackRange as usize,
         FuncId::UnitTargetAcquisitionRange => UnitTargetAcquisitionRange as usize,
         FuncId::UnitSightRange => UnitSightRange as usize,
+        FuncId::CheckWeaponTargetingFlags => CheckWeaponTargetingFlags as usize,
+        FuncId::CheckTechTargeting => CheckTechTargeting as usize,
+        FuncId::CheckOrderTargeting => CheckOrderTargeting as usize,
+        FuncId::CheckFowOrderTargeting => CheckFowOrderTargeting as usize,
+        FuncId::HideUnit => HideUnit as usize,
+        FuncId::ShowUnit => ShowUnit as usize,
         FuncId::_Last => 0,
     };
     mem::transmute(value)

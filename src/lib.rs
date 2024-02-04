@@ -274,6 +274,18 @@ pub enum FuncId {
     UnitTargetAcquisitionRange,
     // this = unit, bool_ignore_blind
     UnitSightRange,
+    // this = unit, weapon_id, target_unit
+    CheckWeaponTargetingFlags,
+    // this = unit, tech_id, target_unit, fow_unit_id, x, y, u16 *opt_error_string_id
+    CheckTechTargeting,
+    // this = unit, order, target_unit, x, y, u16 *opt_error_string_id
+    CheckOrderTargeting,
+    // this = unit, order, fow_unit_id, x, y, u16 *opt_error_string_id
+    CheckFowOrderTargeting,
+    // this = unit
+    HideUnit,
+    // this = unit
+    ShowUnit,
 
     _Last,
 }

@@ -56,6 +56,17 @@ whack_funcs!(stdcall, init_funcs, 0x00400000,
     0x00475870 => UnitAttackRange(@eax usize, @ebx usize) -> usize;
     0x00476000 => UnitTargetAcquisitionRange(@edx usize) -> usize;
     0x004E5B40 => UnitSightRange(@edx usize, usize) -> usize;
+    0x00475CE0 => CheckWeaponTargetingFlags(usize, @eax usize, @edx usize) -> usize;
+    0x00492020 => CheckTechTargeting(
+        usize, @edx usize, @edi usize, @esi usize, usize, usize, usize) -> usize;
+    // ecx, edx really unused
+    0x00474D90 => CheckOrderTargeting(
+        @ebx usize, @eax usize, @esi usize, @ecx usize, @edx usize, usize) -> usize;
+    // eax, esi really unused
+    0x004746D0 => CheckFowOrderTargeting(
+        @ebx usize, @edx usize, @ecx usize, @eax usize, @esi usize, @edi usize) -> usize;
+    0x004E6340 => HideUnit(@eax usize) -> usize;
+    0x004E6490 => ShowUnit(@edi usize) -> usize;
 );
 
 whack_funcs!(init_funcs_cdecl, 0x00400000,
@@ -113,6 +124,17 @@ whack_hooks!(stdcall, 0x00400000,
     0x00475870 => H_UnitAttackRange(@eax usize, @ebx usize) -> usize;
     0x00476000 => H_UnitTargetAcquisitionRange(@edx usize) -> usize;
     0x004E5B40 => H_UnitSightRange(@edx usize, usize) -> usize;
+    0x00475CE0 => H_CheckWeaponTargetingFlags(usize, @eax usize, @edx usize) -> usize;
+    0x00492020 => H_CheckTechTargeting(
+        usize, @edx usize, @edi usize, @esi usize, usize, usize, usize) -> usize;
+    // ecx, edx really unused
+    0x00474D90 => H_CheckOrderTargeting(
+        @ebx usize, @eax usize, @esi usize, @ecx usize, @edx usize, usize) -> usize;
+    // eax, esi really unused
+    0x004746D0 => H_CheckFowOrderTargeting(
+        @ebx usize, @edx usize, @ecx usize, @eax usize, @esi usize, @edi usize) -> usize;
+    0x004E6340 => H_HideUnit(@eax usize) -> usize;
+    0x004E6490 => H_ShowUnit(@edi usize) -> usize;
 );
 
 whack_vars!(init_vars, 0x00400000,
