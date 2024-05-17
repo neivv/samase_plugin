@@ -666,6 +666,9 @@ impl Drop for Context {
                             move |a, o| hook(a, o),
                         );
                     }
+                    GetRenderTarget => (),
+                    MoveScreen => (),
+                    SelectUnits => (),
                     _Last => (),
                 }
             }
@@ -1750,8 +1753,13 @@ unsafe extern fn hook_func(id: u16, hook: usize) -> u32 {
     }
 
     let func: samase_plugin::FuncId = mem::transmute(id as u8);
-    context().func_hooks.push((func, hook));
-    1
+    match func {
+        FuncId::_Last | FuncId::GetRenderTarget | FuncId::MoveScreen | FuncId::SelectUnits => 0,
+        _ => {
+            context().func_hooks.push((func, hook));
+            1
+        }
+    }
 }
 
 #[allow(bad_style)]
@@ -1885,6 +1893,9 @@ unsafe extern fn get_func(id: u16) -> Option<unsafe extern fn()> {
         FuncId::CheckFowOrderTargeting => CheckFowOrderTargeting as usize,
         FuncId::HideUnit => HideUnit as usize,
         FuncId::ShowUnit => ShowUnit as usize,
+        FuncId::GetRenderTarget => 0,
+        FuncId::MoveScreen => 0,
+        FuncId::SelectUnits => 0,
         FuncId::_Last => 0,
     };
     mem::transmute(value)
@@ -1897,7 +1908,7 @@ fn var_result(var: VarId) -> u8 {
             VarId::FirstGuardAi | VarId::ActiveAiTowns | VarId::Selections |
             VarId::ClientSelection | VarId::Players | VarId::SpriteHlines |
             VarId::SpriteHlinesEnd | VarId::GameData | VarId::ReplayData | VarId::ReplayHeader |
-            VarId::FirstPlayerUnit | VarId::Units | VarId::ResourceAreas => 2,
+            VarId::FirstPlayerUnit | VarId::Units | VarId::ResourceAreas | VarId::MainPalette => 2,
         // Writable variables
         VarId::RngEnable | VarId::FirstActiveUnit | VarId::FirstHiddenUnit |
             VarId::FirstAiScript | VarId::ScMainState | VarId::CommandUser |
@@ -1911,11 +1922,14 @@ fn var_result(var: VarId) -> u8 {
             VarId::ActiveIscriptFlingy | VarId::ActiveIscriptUnit |
             VarId::ActiveIscriptBullet | VarId::RngSeed | VarId::LastLoneSprite |
             VarId::FirstFreeLoneSprite | VarId::LastFreeLoneSprite | VarId::LastFowSprite |
-            VarId::FirstFreeFowSprite | VarId::LastFreeFowSprite | VarId::CursorMarker => 3,
+            VarId::FirstFreeFowSprite | VarId::LastFreeFowSprite | VarId::CursorMarker |
+            VarId::FirstDialog => 3,
         // Unsure / SC:R only
         VarId::Zoom | VarId::TooltipDrawFunc | VarId::GraphicLayers |
             VarId::CmdIconsDdsGrp | VarId::CmdBtnsDdsGrp | VarId::StatusScreenMode |
-            VarId::Allocator | VarId::UnitsVector => 0,
+            VarId::Allocator | VarId::UnitsVector | VarId::DrawCommands | VarId::VertexBuffer |
+            VarId::Renderer | VarId::UseRgbColors | VarId::RgbColors | VarId::GameScreenWidthBwpx |
+            VarId::GameScreenHeightBwpx => 0,
         VarId::_Last => 1,
     }
 }
@@ -1977,10 +1991,14 @@ fn var_addr_size(var: VarId) -> (usize, u32) {
         VarId::FirstFreeFowSprite => (0x006509D0, 4),
         VarId::LastFreeFowSprite => (0x00654870, 4),
         VarId::CursorMarker => (0x00652918, 4),
+        VarId::FirstDialog => (0x006D5E34, 0),
+        VarId::MainPalette => (0x005994E0, 0),
         // Unsure / SC:R only
         VarId::Zoom | VarId::TooltipDrawFunc | VarId::GraphicLayers |
             VarId::CmdIconsDdsGrp | VarId::CmdBtnsDdsGrp | VarId::StatusScreenMode |
-            VarId::Allocator | VarId::UnitsVector => (0, 0),
+            VarId::Allocator | VarId::UnitsVector | VarId::DrawCommands | VarId::VertexBuffer |
+            VarId::Renderer | VarId::UseRgbColors | VarId::RgbColors | VarId::GameScreenWidthBwpx |
+            VarId::GameScreenHeightBwpx => (0, 0),
         VarId::_Last => (0, 0),
     }
 }

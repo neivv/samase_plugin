@@ -286,6 +286,12 @@ pub enum FuncId {
     HideUnit,
     // this = unit
     ShowUnit,
+    // a1 = integer id (0 / 1 / 2)
+    GetRenderTarget,
+    // a1 = x, y (Top left)
+    MoveScreen,
+    // a1 = length, units, bool, bool
+    SelectUnits,
 
     _Last,
 }
@@ -357,6 +363,15 @@ pub enum VarId {
     LastFreeFowSprite,
     CursorMarker,
     ResourceAreas,
+    DrawCommands,
+    VertexBuffer,
+    Renderer,
+    FirstDialog,
+    MainPalette,
+    RgbColors,
+    UseRgbColors,
+    GameScreenWidthBwpx,
+    GameScreenHeightBwpx,
 
     _Last,
 }
