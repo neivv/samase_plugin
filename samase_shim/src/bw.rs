@@ -67,6 +67,15 @@ whack_funcs!(stdcall, init_funcs, 0x00400000,
         @ebx usize, @edx usize, @ecx usize, @eax usize, @esi usize, @edi usize) -> usize;
     0x004E6340 => HideUnit(@eax usize) -> usize;
     0x004E6490 => ShowUnit(@edi usize) -> usize;
+    0x0043ABB0 => AiAttackPrepare(usize, usize, usize, usize, usize) -> usize;
+    0x0043A390 => AiRegionUpdateStrength(@esi usize) -> usize;
+    0x0043CC40 => AiRegionUpdateTarget(@edi usize) -> usize;
+    0x0043DE40 => AiRegionAbandonIfOverwhelmed(@edi usize) -> usize;
+    0x0043A510 => AiRegionPickAttackTarget(usize) -> usize;
+    0x0043F990 => AiTrainMilitary(usize) -> usize;
+    0x0043E2E0 => AiAddMilitaryToRegion(@eax usize, usize, usize) -> usize;
+    0x0043FC60 => AiStepRegion(@ecx usize, @eax usize) -> usize;
+    0x0043B9E0 => AiTargetExpansion(usize) -> usize;
 );
 
 whack_funcs!(init_funcs_cdecl, 0x00400000,
@@ -97,7 +106,6 @@ whack_hooks!(stdcall, 0x00400000,
     0x0048C260 => CreateBullet(@ecx u32, i32, i32, u32, u32, @eax *mut c_void) -> *mut c_void;
     0x004A09D0 => CreateUnit(@ecx u32, @eax i32, i32, u32) -> *mut c_void;
     0x0049F380 => InitUnits();
-    0x0043FC60 => AiStepRegion(@ecx u32, @eax u32);
     0x0043FF00 => AiFocusDisabled(@eax *mut c_void);
     0x0043FE50 => AiFocusAir(@esi *mut c_void);
 
@@ -135,6 +143,15 @@ whack_hooks!(stdcall, 0x00400000,
         @ebx usize, @edx usize, @ecx usize, @eax usize, @esi usize, @edi usize) -> usize;
     0x004E6340 => H_HideUnit(@eax usize) -> usize;
     0x004E6490 => H_ShowUnit(@edi usize) -> usize;
+    0x0043ABB0 => H_AiAttackPrepare(usize, usize, usize, usize, usize) -> usize;
+    0x0043A390 => H_AiRegionUpdateStrength(@esi usize) -> usize;
+    0x0043CC40 => H_AiRegionUpdateTarget(@edi usize) -> usize;
+    0x0043DE40 => H_AiRegionAbandonIfOverwhelmed(@edi usize) -> usize;
+    0x0043A510 => H_AiRegionPickAttackTarget(usize) -> usize;
+    0x0043F990 => H_AiTrainMilitary(usize) -> usize;
+    0x0043E2E0 => H_AiAddMilitaryToRegion(@eax usize, usize, usize) -> usize;
+    0x0043FC60 => H_AiStepRegion(@ecx usize, @eax usize) -> usize;
+    0x0043B9E0 => H_AiTargetExpansion(usize) -> usize;
 );
 
 whack_vars!(init_vars, 0x00400000,

@@ -122,7 +122,6 @@ struct InternalContext {
         unsafe extern fn(u32, i32, i32, u32, *const u8) -> *mut c_void,
     ) -> *mut c_void>,
     init_units: Vec<unsafe extern fn(unsafe extern fn())>,
-    ai_step_region: Vec<unsafe extern fn(u32, u32, unsafe extern fn(u32, u32))>,
     aiscript_hooks: Vec<(u8, unsafe extern fn(*mut c_void))>,
     iscript_hooks: Vec<
         (u8, unsafe extern fn(*mut c_void, *mut c_void, *mut c_void, u32, *mut u32))
@@ -453,14 +452,6 @@ impl Drop for Context {
                     },
                 );
             }
-            for hook in ctx.ai_step_region {
-                exe.hook_closure(
-                    bw::AiStepRegion,
-                    move |player, region, orig| {
-                        hook(player, region, orig)
-                    },
-                );
-            }
             for hook in ctx.ai_focus_disabled {
                 exe.hook_closure(
                     bw::AiFocusDisabled,
@@ -480,195 +471,231 @@ impl Drop for Context {
             for (func, hook) in ctx.func_hooks {
                 use samase_plugin::FuncId::*;
 
+                let hook1: Hook1Arg = mem::transmute(hook);
+                let hook2: Hook2Arg = mem::transmute(hook);
+                let hook3: Hook3Arg = mem::transmute(hook);
+                let hook4: Hook4Arg = mem::transmute(hook);
+                let hook5: Hook5Arg = mem::transmute(hook);
+                let hook6: Hook6Arg = mem::transmute(hook);
+                let hook7: Hook7Arg = mem::transmute(hook);
                 match func {
                     UnitCanRally => {
-                        let hook: Hook1Arg = mem::transmute(hook);
-                        exe.hook_closure(bw::H_UnitCanRally, move |a, o| hook(a, o));
+                        exe.hook_closure(bw::H_UnitCanRally, move |a, o| hook1(a, o));
                     }
                     UnitCanBeInfested => {
-                        let hook: Hook1Arg = mem::transmute(hook);
-                        exe.hook_closure(bw::H_UnitCanBeInfested, move |a, o| hook(a, o));
+                        exe.hook_closure(bw::H_UnitCanBeInfested, move |a, o| hook1(a, o));
                     }
                     DoMissileDamage => {
-                        let hook: Hook1Arg = mem::transmute(hook);
-                        exe.hook_closure(bw::H_DoMissileDamage, move |a, o| hook(a, o));
+                        exe.hook_closure(bw::H_DoMissileDamage, move |a, o| hook1(a, o));
                     }
                     HitUnit => {
-                        let hook: Hook3Arg = mem::transmute(hook);
-                        exe.hook_closure(bw::H_HitUnit, move |a, b, c, o| hook(a, b, c, o));
+                        exe.hook_closure(bw::H_HitUnit, move |a, b, c, o| hook3(a, b, c, o));
                     }
                     HallucinationHit => {
-                        let hook: Hook4Arg = mem::transmute(hook);
                         exe.hook_closure(
                             bw::H_HallucinationHit,
-                            move |a, b, c, d, o| hook(a, b & 0xff, c & 0xff, d, o),
+                            move |a, b, c, d, o| hook4(a, b & 0xff, c & 0xff, d, o),
                         );
                     }
                     DamageUnit => {
-                        let hook: Hook5Arg = mem::transmute(hook);
                         exe.hook_closure(
                             bw::H_DamageUnit,
-                            move |a, b, c, d, e, o| hook(a, b, c, d & 0xff, e & 0xff, o),
+                            move |a, b, c, d, e, o| hook5(a, b, c, d & 0xff, e & 0xff, o),
                         );
                     }
                     KillUnit => {
-                        let hook: Hook1Arg = mem::transmute(hook);
-                        exe.hook_closure(bw::H_KillUnit, move |a, o| hook(a, o));
+                        exe.hook_closure(bw::H_KillUnit, move |a, o| hook1(a, o));
                     }
                     UnitSetHp => {
-                        let hook: Hook2Arg = mem::transmute(hook);
-                        exe.hook_closure(bw::H_UnitSetHp, move |a, b, o| hook(a, b, o));
+                        exe.hook_closure(bw::H_UnitSetHp, move |a, b, o| hook2(a, b, o));
                     }
                     TransformUnit => {
-                        let hook: Hook2Arg = mem::transmute(hook);
-                        exe.hook_closure(bw::H_TransformUnit, move |a, b, o| hook(a, b & 0xffff, o));
+                        exe.hook_closure(bw::H_TransformUnit, move |a, b, o| hook2(a, b & 0xffff, o));
                     }
                     GiveUnit => {
-                        let hook: Hook2Arg = mem::transmute(hook);
-                        exe.hook_closure(bw::H_GiveUnit, move |a, b, o| hook(a, b & 0xff, o));
+                        exe.hook_closure(bw::H_GiveUnit, move |a, b, o| hook2(a, b & 0xff, o));
                     }
                     PlaceCreepRect => {
-                        let hook: Hook5Arg = mem::transmute(hook);
                         exe.hook_closure(
                             bw::H_PlaceCreepRect,
-                            move |a, b, c, d, e, o| hook(a, b, c, d, e & 0xff, o),
+                            move |a, b, c, d, e, o| hook5(a, b, c, d, e & 0xff, o),
                         );
                     }
                     PlaceFinishedUnitCreep => {
-                        let hook: Hook3Arg = mem::transmute(hook);
                         exe.hook_closure(
                             bw::H_PlaceFinishedUnitCreep,
-                            move |a, b, c, o| hook(a & 0xffff, b & 0xffff, c & 0xffff, o),
+                            move |a, b, c, o| hook3(a & 0xffff, b & 0xffff, c & 0xffff, o),
                         );
                     }
                     AddAiToTrainedUnit => {
-                        let hook: Hook2Arg = mem::transmute(hook);
                         exe.hook_closure(
                             bw::H_AddAiToTrainedUnit,
-                            move |a, b, o| hook(a, b, o),
+                            move |a, b, o| hook2(a, b, o),
                         );
                     }
                     AddBuildingAi => {
-                        let hook: Hook2Arg = mem::transmute(hook);
                         exe.hook_closure(
                             bw::H_AddBuildingAi,
-                            move |a, b, o| hook(a, b, o),
+                            move |a, b, o| hook2(a, b, o),
                         );
                     }
                     AddTownUnitAi => {
-                        let hook: Hook2Arg = mem::transmute(hook);
                         exe.hook_closure(
                             bw::H_AddTownUnitAi,
-                            move |a, b, o| hook(a, b, o),
+                            move |a, b, o| hook2(a, b, o),
                         );
                     }
                     AddMilitaryAi => {
-                        let hook: Hook3Arg = mem::transmute(hook);
                         exe.hook_closure(
                             bw::H_AddMilitaryAi,
-                            move |a, b, c, o| hook(a, b, c & 0xff, o),
+                            move |a, b, c, o| hook3(a, b, c & 0xff, o),
                         );
                     }
                     AiRemoveUnit => {
-                        let hook: Hook2Arg = mem::transmute(hook);
                         exe.hook_closure(
                             bw::H_AiRemoveUnit,
-                            move |a, b, o| hook(a, b & 0xff, o),
+                            move |a, b, o| hook2(a, b & 0xff, o),
                         );
                     }
                     AiRemoveUnitMilitary => {
-                        let hook: Hook2Arg = mem::transmute(hook);
                         exe.hook_closure(
                             bw::H_AiRemoveUnitMilitary,
-                            move |a, b, o| hook(a, b & 0xff, o),
+                            move |a, b, o| hook2(a, b & 0xff, o),
                         );
                     }
                     AiRemoveUnitTown => {
-                        let hook: Hook2Arg = mem::transmute(hook);
                         exe.hook_closure(
                             bw::H_AiRemoveUnitTown,
-                            move |a, b, o| hook(a, b & 0xff, o),
+                            move |a, b, o| hook2(a, b & 0xff, o),
                         );
                     }
                     UnitMaxEnergy => {
-                        let hook: Hook1Arg = mem::transmute(hook);
                         exe.hook_closure(
                             bw::H_UnitMaxEnergy,
-                            move |a, o| hook(a, o),
+                            move |a, o| hook1(a, o),
                         );
                     }
                     UnitAttackRange => {
-                        let hook: Hook2Arg = mem::transmute(hook);
                         exe.hook_closure(
                             bw::H_UnitAttackRange,
-                            move |a, b, o| hook(a, b & 0xffff, o),
+                            move |a, b, o| hook2(a, b & 0xffff, o),
                         );
                     }
                     UnitTargetAcquisitionRange => {
-                        let hook: Hook1Arg = mem::transmute(hook);
                         exe.hook_closure(
                             bw::H_UnitTargetAcquisitionRange,
-                            move |a, o| hook(a, o),
+                            move |a, o| hook1(a, o),
                         );
                     }
                     UnitSightRange => {
-                        let hook: Hook2Arg = mem::transmute(hook);
                         exe.hook_closure(
                             bw::H_UnitSightRange,
-                            move |a, b, o| hook(a, b & 0xff, o),
+                            move |a, b, o| hook2(a, b & 0xff, o),
                         );
                     }
                     CheckWeaponTargetingFlags => {
-                        let hook: Hook3Arg = mem::transmute(hook);
                         exe.hook_closure(
                             bw::H_CheckWeaponTargetingFlags,
-                            move |a, b, c, o| hook(a, b & 0xff, c, o),
+                            move |a, b, c, o| hook3(a, b & 0xff, c, o),
                         );
                     }
                     CheckTechTargeting => {
-                        let hook: Hook7Arg = mem::transmute(hook);
                         exe.hook_closure(
                             bw::H_CheckTechTargeting,
                             move |a, b, c, d, e, f, g, o| {
-                                hook(a, b & 0xff, c, d & 0xffff, e & 0xffff, f & 0xffff, g, o)
+                                hook7(a, b & 0xff, c, d & 0xffff, e & 0xffff, f & 0xffff, g, o)
                             }
                         );
                     }
                     CheckOrderTargeting => {
-                        let hook: Hook6Arg = mem::transmute(hook);
                         exe.hook_closure(
                             bw::H_CheckOrderTargeting,
                             move |a, b, c, d, e, f, o| {
-                                hook(a, b & 0xff, c, d & 0xffff, e & 0xffff, f, o)
+                                hook6(a, b & 0xff, c, d & 0xffff, e & 0xffff, f, o)
                             }
                         );
                     }
                     CheckFowOrderTargeting => {
-                        let hook: Hook6Arg = mem::transmute(hook);
                         exe.hook_closure(
                             bw::H_CheckFowOrderTargeting,
                             move |a, b, c, d, e, f, o| {
-                                hook(a, b & 0xff, c & 0xffff, d & 0xffff, e & 0xffff, f, o)
+                                hook6(a, b & 0xff, c & 0xffff, d & 0xffff, e & 0xffff, f, o)
                             }
                         );
                     }
                     HideUnit => {
-                        let hook: Hook1Arg = mem::transmute(hook);
                         exe.hook_closure(
                             bw::H_HideUnit,
-                            move |a, o| hook(a, o),
+                            move |a, o| hook1(a, o),
                         );
                     }
                     ShowUnit => {
-                        let hook: Hook1Arg = mem::transmute(hook);
                         exe.hook_closure(
                             bw::H_ShowUnit,
-                            move |a, o| hook(a, o),
+                            move |a, o| hook1(a, o),
                         );
                     }
+                    AiAddMilitaryToRegion => {
+                        exe.hook_closure(
+                            bw::H_AiAddMilitaryToRegion,
+                            move |a, b, c, o| hook3(a, b & 0xffff, c & 0xff, o),
+                        );
+                    }
+                    AiTrainMilitary => {
+                        exe.hook_closure(
+                            bw::H_AiTrainMilitary,
+                            move |a, o| hook1(a & 0xff, o),
+                        );
+                    }
+                    AiAttackPrepare => {
+                        exe.hook_closure(
+                            bw::H_AiAttackPrepare,
+                            move |a, b, c, d, e, o| {
+                                hook5(a & 0xff, b & 0xffff, c & 0xffff, d & 0xff, e & 0xff, o)
+                            },
+                        );
+                    }
+                    AiRegionUpdateStrength => {
+                        exe.hook_closure(
+                            bw::H_AiRegionUpdateStrength,
+                            move |a, o| hook1(a, o),
+                        );
+                    }
+                    AiRegionUpdateTarget => {
+                        exe.hook_closure(
+                            bw::H_AiRegionUpdateTarget,
+                            move |a, o| hook1(a, o),
+                        );
+                    }
+                    AiRegionAbandonIfOverwhelmed => {
+                        exe.hook_closure(
+                            bw::H_AiRegionAbandonIfOverwhelmed,
+                            move |a, o| hook1(a, o),
+                        );
+                    }
+                    AiRegionPickAttackTarget => {
+                        exe.hook_closure(
+                            bw::H_AiRegionPickAttackTarget,
+                            move |a, o| hook1(a, o),
+                        );
+                    }
+                    AiStepRegion => {
+                        exe.hook_closure(
+                            bw::H_AiStepRegion,
+                            move |a, b, o| hook2(a & 0xff, b & 0xffff, o),
+                        );
+                    }
+                    AiTargetExpansion => {
+                        exe.hook_closure(
+                            bw::H_AiTargetExpansion,
+                            move |a, o| hook1(a & 0xff, o),
+                        );
+                    }
+                    AiAttackClear => (), // Inlined in 1.16.1
                     GetRenderTarget => (),
                     MoveScreen => (),
                     SelectUnits => (),
+                    StepGameLogic => (),
                     _Last => (),
                 }
             }
@@ -1389,8 +1416,7 @@ unsafe extern fn hook_init_units(hook: unsafe extern fn(unsafe extern fn())) -> 
 unsafe extern fn hook_ai_step_region(
     hook: unsafe extern fn(u32, u32, unsafe extern fn(u32, u32)),
 ) -> u32 {
-    context().ai_step_region.push(hook);
-    1
+    hook_func(FuncId::AiStepRegion as u16, hook as usize)
 }
 
 unsafe extern fn extended_arrays(
@@ -1751,14 +1777,12 @@ unsafe extern fn hook_func(id: u16, hook: usize) -> u32 {
     if id >= samase_plugin::MAX_FUNC_ID {
         return 0;
     }
-
-    let func: samase_plugin::FuncId = mem::transmute(id as u8);
-    match func {
-        FuncId::_Last | FuncId::GetRenderTarget | FuncId::MoveScreen | FuncId::SelectUnits => 0,
-        _ => {
-            context().func_hooks.push((func, hook));
-            1
-        }
+    if get_func(id).is_some() {
+        let func: samase_plugin::FuncId = mem::transmute(id as u8);
+        context().func_hooks.push((func, hook));
+        1
+    } else {
+        0
     }
 }
 
@@ -1861,6 +1885,33 @@ unsafe extern fn get_func(id: u16) -> Option<unsafe extern fn()> {
     unsafe extern fn ShowUnit(a: usize) -> usize {
         bw::ShowUnit(a)
     }
+    unsafe extern fn AiAddMilitaryToRegion(a: usize, b: usize, c: usize) -> usize {
+        bw::AiAddMilitaryToRegion(a, b, c)
+    }
+    unsafe extern fn AiAttackPrepare(a: usize, b: usize, c: usize, d: usize, e: usize) -> usize {
+        bw::AiAttackPrepare(a, b, c, d, e)
+    }
+    unsafe extern fn AiTrainMilitary(a: usize) -> usize {
+        bw::AiTrainMilitary(a)
+    }
+    unsafe extern fn AiRegionUpdateStrength(a: usize) -> usize {
+        bw::AiRegionUpdateStrength(a)
+    }
+    unsafe extern fn AiRegionUpdateTarget(a: usize) -> usize {
+        bw::AiRegionUpdateTarget(a)
+    }
+    unsafe extern fn AiRegionAbandonIfOverwhelmed(a: usize) -> usize {
+        bw::AiRegionAbandonIfOverwhelmed(a)
+    }
+    unsafe extern fn AiRegionPickAttackTarget(a: usize) -> usize {
+        bw::AiRegionPickAttackTarget(a)
+    }
+    unsafe extern fn AiStepRegion(a: usize, b: usize) -> usize {
+        bw::AiStepRegion(a, b)
+    }
+    unsafe extern fn AiTargetExpansion(a: usize) -> usize {
+        bw::AiTargetExpansion(a)
+    }
 
     let func: samase_plugin::FuncId = mem::transmute(id as u8);
     let value = match func {
@@ -1893,9 +1944,20 @@ unsafe extern fn get_func(id: u16) -> Option<unsafe extern fn()> {
         FuncId::CheckFowOrderTargeting => CheckFowOrderTargeting as usize,
         FuncId::HideUnit => HideUnit as usize,
         FuncId::ShowUnit => ShowUnit as usize,
+        FuncId::AiAddMilitaryToRegion => AiAddMilitaryToRegion as usize,
+        FuncId::AiTrainMilitary => AiTrainMilitary as usize,
+        FuncId::AiAttackPrepare => AiAttackPrepare as usize,
+        FuncId::AiAttackClear => 0,
+        FuncId::AiRegionUpdateStrength => AiRegionUpdateStrength as usize,
+        FuncId::AiRegionUpdateTarget => AiRegionUpdateTarget as usize,
+        FuncId::AiRegionAbandonIfOverwhelmed => AiRegionAbandonIfOverwhelmed as usize,
+        FuncId::AiRegionPickAttackTarget => AiRegionPickAttackTarget as usize,
+        FuncId::AiStepRegion => AiStepRegion as usize,
+        FuncId::AiTargetExpansion => AiTargetExpansion as usize,
         FuncId::GetRenderTarget => 0,
         FuncId::MoveScreen => 0,
         FuncId::SelectUnits => 0,
+        FuncId::StepGameLogic => 0,
         FuncId::_Last => 0,
     };
     mem::transmute(value)
@@ -1929,7 +1991,7 @@ fn var_result(var: VarId) -> u8 {
             VarId::CmdIconsDdsGrp | VarId::CmdBtnsDdsGrp | VarId::StatusScreenMode |
             VarId::Allocator | VarId::UnitsVector | VarId::DrawCommands | VarId::VertexBuffer |
             VarId::Renderer | VarId::UseRgbColors | VarId::RgbColors | VarId::GameScreenWidthBwpx |
-            VarId::GameScreenHeightBwpx => 0,
+            VarId::GameScreenHeightBwpx | VarId::StepGameFrames => 0,
         VarId::_Last => 1,
     }
 }
@@ -1998,7 +2060,7 @@ fn var_addr_size(var: VarId) -> (usize, u32) {
             VarId::CmdIconsDdsGrp | VarId::CmdBtnsDdsGrp | VarId::StatusScreenMode |
             VarId::Allocator | VarId::UnitsVector | VarId::DrawCommands | VarId::VertexBuffer |
             VarId::Renderer | VarId::UseRgbColors | VarId::RgbColors | VarId::GameScreenWidthBwpx |
-            VarId::GameScreenHeightBwpx => (0, 0),
+            VarId::GameScreenHeightBwpx | VarId::StepGameFrames => (0, 0),
         VarId::_Last => (0, 0),
     }
 }

@@ -292,6 +292,28 @@ pub enum FuncId {
     MoveScreen,
     // a1 = length, units, bool, bool
     SelectUnits,
+    // a1 = AiRegion *, unit_id, priority
+    AiAddMilitaryToRegion,
+    // a1 = player
+    AiTrainMilitary,
+    // a1 = player, x, y, bool always_override, bool allow_air_fallback
+    AiAttackPrepare,
+    // a1 = player, bool zero_last_attack_second
+    AiAttackClear,
+    // a1 = AiRegion *
+    AiRegionUpdateStrength,
+    // a1 = AiRegion *
+    AiRegionUpdateTarget,
+    // a1 = AiRegion *
+    AiRegionAbandonIfOverwhelmed,
+    // a1 = AiRegion *
+    AiRegionPickAttackTarget,
+    // a1 = player, region_id
+    AiStepRegion,
+    // a1 = player
+    AiTargetExpansion,
+    // a1 = Related to replay seeking?
+    StepGameLogic,
 
     _Last,
 }
@@ -372,6 +394,7 @@ pub enum VarId {
     UseRgbColors,
     GameScreenWidthBwpx,
     GameScreenHeightBwpx,
+    StepGameFrames,
 
     _Last,
 }
