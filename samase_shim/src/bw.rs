@@ -76,6 +76,28 @@ whack_funcs!(stdcall, init_funcs, 0x00400000,
     0x0043E2E0 => AiAddMilitaryToRegion(@eax usize, usize, usize) -> usize;
     0x0043FC60 => AiStepRegion(@ecx usize, @eax usize) -> usize;
     0x0043B9E0 => AiTargetExpansion(usize) -> usize;
+    0x004EC290 => StepUnitTimers(@eax usize) -> usize;
+    0x00491B30 => StartCloaking(@eax usize) -> usize;
+    0x00435210 => UnitAiWorker(usize) -> usize;
+    0x004361A0 => AiTryProgressSpendingRequest(@ecx usize) -> usize;
+    0x0043D910 => UnitAiMilitary(@eax usize) -> usize;
+    0x00476930 => AiCanTargetAttackThis(@ecx usize, @eax usize) -> usize;
+    0x00476730 => CanAttackUnit(@esi usize, @ebx usize, usize) -> usize;
+    0x00476430 => IsOutsideAttackRange(@eax usize, usize) -> usize;
+    0x00462EA0 => AiTryReturnHome(@eax usize, usize) -> usize;
+    0x004308A0 => FindUnitsRect(*mut u16) -> *mut usize;
+    0x00467250 => PrepareBuildUnit(@edi usize, usize) -> usize;
+    0x004E1D90 => CalculatePath(usize) -> usize;
+    0x004465C0 => AiPlaceBuilding(@ecx usize, usize, usize, usize, usize) -> usize;
+    0x004E29B0 => GetChokePointRegions(
+        @ecx usize, @edx usize, usize, usize, usize, @eax usize) -> usize;
+    0x00473FB0 => UpdateBuildingPlacementState(
+        usize, usize, usize, usize, usize, usize, usize, usize, usize) -> usize;
+    0x004461B0 => AiUpdateBuildingPlacementState(
+        @ebx usize, @esi usize, usize, usize, usize) -> usize;
+    // Not done since the callback is fastcall and wrapping it would be effort
+    //0x004E8740 => FindNearestUnitInArea(@esi usize, usize, usize, usize) -> usize;
+    //0x004E8740 => FindNearestUnit(@esi usize, usize, usize, usize) -> usize;
 );
 
 whack_funcs!(init_funcs_cdecl, 0x00400000,
@@ -152,6 +174,24 @@ whack_hooks!(stdcall, 0x00400000,
     0x0043E2E0 => H_AiAddMilitaryToRegion(@eax usize, usize, usize) -> usize;
     0x0043FC60 => H_AiStepRegion(@ecx usize, @eax usize) -> usize;
     0x0043B9E0 => H_AiTargetExpansion(usize) -> usize;
+    0x004EC290 => H_StepUnitTimers(@eax usize) -> usize;
+    0x00491B30 => H_StartCloaking(@eax usize) -> usize;
+    0x00435210 => H_UnitAiWorker(usize) -> usize;
+    0x004361A0 => H_AiTryProgressSpendingRequest(@ecx usize) -> usize;
+    0x0043D910 => H_UnitAiMilitary(@eax usize) -> usize;
+    0x00476930 => H_AiCanTargetAttackThis(@ecx usize, @eax usize) -> usize;
+    0x00476730 => H_CanAttackUnit(@esi usize, @ebx usize, usize) -> usize;
+    0x00476430 => H_IsOutsideAttackRange(@eax usize, usize) -> usize;
+    0x00462EA0 => H_AiTryReturnHome(@eax usize, usize) -> usize;
+    0x00467250 => H_PrepareBuildUnit(@edi usize, usize) -> usize;
+    0x004E1D90 => H_CalculatePath(usize) -> usize;
+    0x004465C0 => H_AiPlaceBuilding(@ecx usize, usize, usize, usize, usize) -> usize;
+    0x004E29B0 => H_GetChokePointRegions(
+        @ecx usize, @edx usize, usize, usize, usize, @eax usize) -> usize;
+    0x00473FB0 => H_UpdateBuildingPlacementState(
+        usize, usize, usize, usize, usize, usize, usize, usize, usize) -> usize;
+    0x004461B0 => H_AiUpdateBuildingPlacementState(
+        @ebx usize, @esi usize, usize, usize, usize) -> usize;
 );
 
 whack_vars!(init_vars, 0x00400000,

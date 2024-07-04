@@ -48,6 +48,9 @@ type Hook6Arg = unsafe extern fn(usize, usize, usize, usize, usize, usize,
     unsafe extern fn(usize, usize, usize, usize, usize, usize) -> usize) -> usize;
 type Hook7Arg = unsafe extern fn(usize, usize, usize, usize, usize, usize, usize,
     unsafe extern fn(usize, usize, usize, usize, usize, usize, usize) -> usize) -> usize;
+type Hook9Arg = unsafe extern fn(usize, usize, usize, usize, usize, usize, usize, usize, usize,
+    unsafe extern fn(usize, usize, usize, usize, usize, usize, usize, usize, usize) -> usize,
+    ) -> usize;
 
 struct FileReadHook {
     prefix: Vec<u8>,
@@ -478,6 +481,7 @@ impl Drop for Context {
                 let hook5: Hook5Arg = mem::transmute(hook);
                 let hook6: Hook6Arg = mem::transmute(hook);
                 let hook7: Hook7Arg = mem::transmute(hook);
+                let hook9: Hook9Arg = mem::transmute(hook);
                 match func {
                     UnitCanRally => {
                         exe.hook_closure(bw::H_UnitCanRally, move |a, o| hook1(a, o));
@@ -691,6 +695,107 @@ impl Drop for Context {
                             move |a, o| hook1(a & 0xff, o),
                         );
                     }
+                    StepUnitTimers => {
+                        exe.hook_closure(
+                            bw::H_StepUnitTimers,
+                            move |a, o| hook1(a, o),
+                        );
+                    }
+                    StartCloaking => {
+                        exe.hook_closure(
+                            bw::H_StartCloaking,
+                            move |a, o| hook1(a, o),
+                        );
+                    }
+                    UnitAiWorker => {
+                        exe.hook_closure(
+                            bw::H_UnitAiWorker,
+                            move |a, o| hook1(a, o),
+                        );
+                    }
+                    UnitAiMilitary => {
+                        exe.hook_closure(
+                            bw::H_UnitAiMilitary,
+                            move |a, o| hook1(a, o),
+                        );
+                    }
+                    UnitAiBuilding => {
+                        exe.hook_closure(
+                            bw::H_AiTryProgressSpendingRequest,
+                            move |a, o| hook1(a, o),
+                        );
+                    }
+                    AiCanTargetAttackThis => {
+                        exe.hook_closure(
+                            bw::H_AiCanTargetAttackThis,
+                            move |a, b, o| hook2(a, b, o),
+                        );
+                    }
+                    AiTryReturnHome => {
+                        exe.hook_closure(
+                            bw::H_AiTryReturnHome,
+                            move |a, b, o| hook2(a, b, o),
+                        );
+                    }
+                    IsOutsideAttackRange => {
+                        exe.hook_closure(
+                            bw::H_IsOutsideAttackRange,
+                            move |a, b, o| hook2(a, b, o),
+                        );
+                    }
+                    CanAttackUnit => {
+                        exe.hook_closure(
+                            bw::H_CanAttackUnit,
+                            move |a, b, c, o| hook3(a, b, c & 0xff, o),
+                        );
+                    }
+                    PrepareBuildUnit => {
+                        exe.hook_closure(
+                            bw::H_PrepareBuildUnit,
+                            move |a, b, o| hook2(a, b & 0xffff, o),
+                        );
+                    }
+                    CalculatePath => {
+                        exe.hook_closure(
+                            bw::H_CalculatePath,
+                            move |a, o| hook1(a, o),
+                        );
+                    }
+                    GetChokePointRegions => {
+                        exe.hook_closure(
+                            bw::H_GetChokePointRegions,
+                            move |a, b, c, d, e, f, o| {
+                                hook6(a & 0xffff, b & 0xffff, c & 0xff, d, e, f & 0xff, o)
+                            },
+                        );
+                    }
+                    AiPlaceBuilding => {
+                        exe.hook_closure(
+                            bw::H_AiPlaceBuilding,
+                            move |a, b, c, d, e, o| {
+                                hook5(a, b & 0xffff, c, d, e & 0xff, o)
+                            },
+                        );
+                    }
+                    AiUpdateBuildingPlacementState => {
+                        exe.hook_closure(
+                            bw::H_AiUpdateBuildingPlacementState,
+                            move |a, b, c, d, e, o| {
+                                hook5(a & 0xffff, b, c & 0xff, d, e & 0xff, o)
+                            },
+                        );
+                    }
+                    UpdateBuildingPlacementState => {
+                        exe.hook_closure(
+                            bw::H_UpdateBuildingPlacementState,
+                            move |a, b, c, d, e, f, g, h, i, o| {
+                                hook9(a, b & 0xffff, c & 0xffff, d & 0xffff, e & 0xffff,
+                                    f & 0xff, g & 0xff, h & 0xff, i & 0xff, o)
+                            },
+                        );
+                    }
+                    FindNearestUnitAroundUnit | FindNearestUnitInArea | ForEachUnitInArea |
+                        FindNearestUnitInAreaPoint => (),
                     AiAttackClear => (), // Inlined in 1.16.1
                     GetRenderTarget => (),
                     MoveScreen => (),
@@ -1912,6 +2017,79 @@ unsafe extern fn get_func(id: u16) -> Option<unsafe extern fn()> {
     unsafe extern fn AiTargetExpansion(a: usize) -> usize {
         bw::AiTargetExpansion(a)
     }
+    unsafe extern fn StepUnitTimers(a: usize) -> usize {
+        bw::StepUnitTimers(a)
+    }
+    unsafe extern fn StartCloaking(a: usize) -> usize {
+        bw::StartCloaking(a)
+    }
+    unsafe extern fn UnitAiMilitary(a: usize) -> usize {
+        bw::UnitAiMilitary(a)
+    }
+    unsafe extern fn UnitAiWorker(a: usize) -> usize {
+        bw::UnitAiWorker(a)
+    }
+    unsafe extern fn AiTryProgressSpendingRequest(a: usize) -> usize {
+        bw::AiTryProgressSpendingRequest(a)
+    }
+    unsafe extern fn CanAttackUnit(a: usize, b: usize, c: usize) -> usize {
+        bw::CanAttackUnit(a, b, c)
+    }
+    unsafe extern fn IsOutsideAttackRange(a: usize, b: usize) -> usize {
+        bw::IsOutsideAttackRange(a, b)
+    }
+    unsafe extern fn AiCanTargetAttackThis(a: usize, b: usize) -> usize {
+        bw::AiCanTargetAttackThis(a, b)
+    }
+    unsafe extern fn AiTryReturnHome(a: usize, b: usize) -> usize {
+        bw::AiTryReturnHome(a, b)
+    }
+    unsafe extern fn PrepareBuildUnit(a: usize, b: usize) -> usize {
+        bw::PrepareBuildUnit(a, b)
+    }
+    unsafe extern fn CalculatePath(a: usize) -> usize {
+        bw::CalculatePath(a)
+    }
+    unsafe extern fn AiPlaceBuilding(a: usize, b: usize, c: usize, d: usize, e: usize) -> usize {
+        bw::AiPlaceBuilding(a, b, c, d, e)
+    }
+    unsafe extern fn GetChokePointRegions(
+        a: usize, b: usize, c: usize, d: usize, e: usize, f: usize,
+    ) -> usize {
+        bw::GetChokePointRegions(a, b, c, d, e, f)
+    }
+    unsafe extern fn AiUpdateBuildingPlacementState(
+        a: usize, b: usize, c: usize, d: usize, e: usize,
+    ) -> usize {
+        bw::AiUpdateBuildingPlacementState(a, b, c, d, e)
+    }
+    unsafe extern fn UpdateBuildingPlacementState(
+        a: usize, b: usize, c: usize, d: usize, e: usize, f: usize, g: usize, h: usize, i: usize,
+    ) -> usize {
+        bw::UpdateBuildingPlacementState(a, b, c, d, e, f, g, h, i)
+    }
+    unsafe extern fn ForEachUnitInArea(
+        area: *mut u16,
+        func: unsafe extern fn(usize, *mut c_void) -> u32,
+        param: *mut c_void,
+    ) -> usize {
+        let mut units = bw::FindUnitsRect(area);
+        let result = loop {
+            let unit = *units;
+            if unit == 0 {
+                break 0;
+            }
+            if func(unit, param) != 0 {
+                break unit;
+            }
+            units = units.add(1);
+        };
+        let count = 0x6bee6c as *mut u32;
+        let unit_count = *count.add(*count as usize);
+        *count = *count - 1;
+        *(0x6bee64 as *mut u32) = unit_count;
+        result
+    }
 
     let func: samase_plugin::FuncId = mem::transmute(id as u8);
     let value = match func {
@@ -1954,6 +2132,24 @@ unsafe extern fn get_func(id: u16) -> Option<unsafe extern fn()> {
         FuncId::AiRegionPickAttackTarget => AiRegionPickAttackTarget as usize,
         FuncId::AiStepRegion => AiStepRegion as usize,
         FuncId::AiTargetExpansion => AiTargetExpansion as usize,
+        FuncId::StepUnitTimers => StepUnitTimers as usize,
+        FuncId::StartCloaking => StartCloaking as usize,
+        FuncId::UnitAiWorker => UnitAiWorker as usize,
+        FuncId::UnitAiMilitary => UnitAiMilitary as usize,
+        FuncId::UnitAiBuilding => AiTryProgressSpendingRequest as usize,
+        FuncId::AiCanTargetAttackThis => AiCanTargetAttackThis as usize,
+        FuncId::AiTryReturnHome => AiTryReturnHome as usize,
+        FuncId::CanAttackUnit => CanAttackUnit as usize,
+        FuncId::IsOutsideAttackRange => IsOutsideAttackRange as usize,
+        FuncId::ForEachUnitInArea => ForEachUnitInArea as usize,
+        FuncId::PrepareBuildUnit => PrepareBuildUnit as usize,
+        FuncId::CalculatePath => CalculatePath as usize,
+        FuncId::AiPlaceBuilding => AiPlaceBuilding as usize,
+        FuncId::GetChokePointRegions => GetChokePointRegions as usize,
+        FuncId::AiUpdateBuildingPlacementState => AiUpdateBuildingPlacementState as usize,
+        FuncId::UpdateBuildingPlacementState => UpdateBuildingPlacementState as usize,
+        FuncId::FindNearestUnitInArea | FuncId::FindNearestUnitAroundUnit |
+            FuncId::FindNearestUnitInAreaPoint => 0,
         FuncId::GetRenderTarget => 0,
         FuncId::MoveScreen => 0,
         FuncId::SelectUnits => 0,
@@ -1985,13 +2181,15 @@ fn var_result(var: VarId) -> u8 {
             VarId::ActiveIscriptBullet | VarId::RngSeed | VarId::LastLoneSprite |
             VarId::FirstFreeLoneSprite | VarId::LastFreeLoneSprite | VarId::LastFowSprite |
             VarId::FirstFreeFowSprite | VarId::LastFreeFowSprite | VarId::CursorMarker |
-            VarId::FirstDialog => 3,
+            VarId::FirstDialog | VarId::TilesetIndexedMapTiles | VarId::TilesetCv5 |
+            VarId::MinitileData | VarId::CreepOriginalTiles | VarId::CreepTileBorders => 3,
         // Unsure / SC:R only
         VarId::Zoom | VarId::TooltipDrawFunc | VarId::GraphicLayers |
             VarId::CmdIconsDdsGrp | VarId::CmdBtnsDdsGrp | VarId::StatusScreenMode |
             VarId::Allocator | VarId::UnitsVector | VarId::DrawCommands | VarId::VertexBuffer |
             VarId::Renderer | VarId::UseRgbColors | VarId::RgbColors | VarId::GameScreenWidthBwpx |
-            VarId::GameScreenHeightBwpx | VarId::StepGameFrames => 0,
+            VarId::GameScreenHeightBwpx | VarId::StepGameFrames |
+            VarId::StatportTalkingPortraitActive => 0,
         VarId::_Last => 1,
     }
 }
@@ -2053,6 +2251,11 @@ fn var_addr_size(var: VarId) -> (usize, u32) {
         VarId::FirstFreeFowSprite => (0x006509D0, 4),
         VarId::LastFreeFowSprite => (0x00654870, 4),
         VarId::CursorMarker => (0x00652918, 4),
+        VarId::TilesetCv5 => (0x006D5EC8, 4),
+        VarId::TilesetIndexedMapTiles => (0x005993C4, 4),
+        VarId::MinitileData => (0x005993D0, 4),
+        VarId::CreepOriginalTiles => (0x006D0C68, 4),
+        VarId::CreepTileBorders => (0x006D0E80, 4),
         VarId::FirstDialog => (0x006D5E34, 0),
         VarId::MainPalette => (0x005994E0, 0),
         // Unsure / SC:R only
@@ -2060,7 +2263,8 @@ fn var_addr_size(var: VarId) -> (usize, u32) {
             VarId::CmdIconsDdsGrp | VarId::CmdBtnsDdsGrp | VarId::StatusScreenMode |
             VarId::Allocator | VarId::UnitsVector | VarId::DrawCommands | VarId::VertexBuffer |
             VarId::Renderer | VarId::UseRgbColors | VarId::RgbColors | VarId::GameScreenWidthBwpx |
-            VarId::GameScreenHeightBwpx | VarId::StepGameFrames => (0, 0),
+            VarId::GameScreenHeightBwpx | VarId::StepGameFrames |
+            VarId::StatportTalkingPortraitActive => (0, 0),
         VarId::_Last => (0, 0),
     }
 }

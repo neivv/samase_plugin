@@ -314,6 +314,47 @@ pub enum FuncId {
     AiTargetExpansion,
     // a1 = Related to replay seeking?
     StepGameLogic,
+    // this = unit
+    StepUnitTimers,
+    // this = unit
+    StartCloaking,
+    // a1 = unit
+    UnitAiWorker,
+    // a1 = unit
+    UnitAiMilitary,
+    // a1 = unit (May be called for workers too but nop, may be called several times to try first
+    // value in spending request queue?)
+    UnitAiBuilding,
+    // this = unit, rect, filter_func, filter_param
+    FindNearestUnitInArea,
+    // this = unit, radius, filter_func, filter_param
+    FindNearestUnitAroundUnit,
+    // this = unit, target, check_detection
+    CanAttackUnit,
+    // this = unit, target
+    IsOutsideAttackRange,
+    // this = unit, target_opt
+    AiCanTargetAttackThis,
+    // a1 = unit, dont_issue_order
+    AiTryReturnHome,
+    // a1 = rect, filter_func, func_param
+    ForEachUnitInArea,
+    // this = builder_unit, unit_id
+    PrepareBuildUnit,
+    // a1 = path_context
+    CalculatePath,
+    // a1 = worker, unit_id, pos_xy, out_xy, area_tiles
+    AiPlaceBuilding,
+    // a1 = source_region, dest_region, max_distance_regions, [u16; 3] *out_regions,
+    // u32 *out_error, min_distance_regions
+    GetChokePointRegions,
+    // a1 = unit_id, u8 *placement_data[0x1000], player, pos_xy, radius_tiles
+    AiUpdateBuildingPlacementState,
+    // a1 = unit_opt, player, x_tile, y_tile, unit_id, placement_entry,
+    // check_vision, also_invisible, without_vision
+    UpdateBuildingPlacementState,
+    // a1 = x, y, rect, filter_func, filter_param
+    FindNearestUnitInAreaPoint,
 
     _Last,
 }
@@ -395,6 +436,12 @@ pub enum VarId {
     GameScreenWidthBwpx,
     GameScreenHeightBwpx,
     StepGameFrames,
+    StatportTalkingPortraitActive,
+    TilesetCv5,
+    MinitileData,
+    TilesetIndexedMapTiles,
+    CreepOriginalTiles,
+    CreepTileBorders,
 
     _Last,
 }
