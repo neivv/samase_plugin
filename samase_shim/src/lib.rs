@@ -796,6 +796,8 @@ impl Drop for Context {
                     }
                     FindNearestUnitAroundUnit | FindNearestUnitInArea | ForEachUnitInArea |
                         FindNearestUnitInAreaPoint => (),
+                    // Not bw functions
+                    AiPickBestPlacementPosition | AiPlacementFlags => (),
                     AiAttackClear => (), // Inlined in 1.16.1
                     GetRenderTarget => (),
                     MoveScreen => (),
@@ -2150,6 +2152,7 @@ unsafe extern fn get_func(id: u16) -> Option<unsafe extern fn()> {
         FuncId::UpdateBuildingPlacementState => UpdateBuildingPlacementState as usize,
         FuncId::FindNearestUnitInArea | FuncId::FindNearestUnitAroundUnit |
             FuncId::FindNearestUnitInAreaPoint => 0,
+        FuncId::AiPickBestPlacementPosition | FuncId::AiPlacementFlags => 0,
         FuncId::GetRenderTarget => 0,
         FuncId::MoveScreen => 0,
         FuncId::SelectUnits => 0,

@@ -355,6 +355,12 @@ pub enum FuncId {
     UpdateBuildingPlacementState,
     // a1 = x, y, rect, filter_func, filter_param
     FindNearestUnitInAreaPoint,
+    // a1 = builder_unit, u8 *placement_data[0x1000], player, unit_id, placement_center,
+    // search_pos, u32 *out
+    // Return 1 for ok, 0 for none
+    AiPickBestPlacementPosition,
+    // a1 = builder_unit, player, unit_id
+    AiPlacementFlags,
 
     _Last,
 }
