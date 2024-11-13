@@ -278,7 +278,7 @@ pub struct DebugUiDraw {
 }
 
 #[derive(Copy, Clone)]
-pub struct DebugUiDrawHelper(pub *mut DebugUiDraw);
+pub struct DebugUiDrawHelper(pub *const DebugUiDraw);
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum FuncId {
