@@ -3,12 +3,14 @@
 pub mod commands;
 pub mod save;
 
+use std::ptr::{null_mut};
+
 use libc::c_void;
 
 use crate::commands::{CommandLength, IngameCommandHook};
 use crate::save::{SaveHook, LoadHook};
 
-pub const VERSION: u16 = 40;
+pub const VERSION: u16 = 41;
 pub const MAX_FUNC_ID: u16 = FuncId::_Last as u16;
 pub const MAX_VAR_ID: u16 = VarId::_Last as u16;
 
@@ -224,7 +226,59 @@ pub struct PluginApi {
     pub read_vars: unsafe extern fn(*const u16, *mut usize, usize),
     // List of VarId, list of values, length of lists
     pub write_vars: unsafe extern fn(*const u16, *const usize, usize),
+    // Main tab name, subtab name, draw fn, draw fn ctx
+    // Return 0 if debug ui is disabled.
+    pub debug_ui_add_tab:
+        unsafe extern fn(*const FfiStr, *const FfiStr, DebugUiDrawCb, *mut c_void) -> usize,
 }
+
+#[repr(C)]
+pub struct FfiStr {
+    pub bytes: *const u8,
+    pub len: usize,
+}
+
+#[repr(C)]
+pub struct ComplexLineParam {
+    pub data: *mut c_void,
+    pub ty: u32,
+}
+
+#[repr(u32)]
+pub enum ComplexLineParamType {
+    Unit = 0,
+    UnitId = 1,
+    Point = 2,
+    AiRegion = 3,
+}
+
+#[repr(transparent)]
+pub struct DebugUiColor(pub u32);
+
+pub type DebugUiDrawCb = unsafe extern fn(*const DebugUiDraw, *mut c_void);
+
+#[repr(C)]
+pub struct DebugUiDraw {
+    pub struct_size: usize,
+    // Text, return was_clicked
+    pub button: unsafe extern fn(*const FfiStr, DebugUiColor) -> u8,
+    // Text, state_opt, return state
+    // If state_opt is not given uses a variable based on text + tab names.
+    pub checkbox: unsafe extern fn(*const FfiStr, *mut u8) -> u8,
+    // Label_opt, state_in, state_out
+    pub text_entry: unsafe extern fn(*const FfiStr, *const FfiStr, *mut FfiStr),
+    // Text, color
+    pub label: unsafe extern fn(*const FfiStr, DebugUiColor),
+    // Text, color, index, state
+    // Writes *state = index when clicked.
+    pub clickable_label: unsafe extern fn(*const FfiStr, DebugUiColor, u32, *mut u32),
+    // Text, params, param_count
+    // "[]" in text gets replaced by params. No fancier formatting specifiers.
+    pub complex_line: unsafe extern fn(*const FfiStr, *const ComplexLineParam, usize),
+}
+
+#[derive(Copy, Clone)]
+pub struct DebugUiDrawHelper(pub *mut DebugUiDraw);
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum FuncId {
@@ -450,4 +504,129 @@ pub enum VarId {
     CreepTileBorders,
 
     _Last,
+}
+
+impl FfiStr {
+    pub fn from_str(input: &str) -> FfiStr {
+        Self::from_bytes(input.as_bytes())
+    }
+
+    pub fn from_bytes(input: &[u8]) -> FfiStr {
+        let len = input.len();
+        FfiStr {
+            bytes: input.as_ptr(),
+            len,
+        }
+    }
+
+    pub unsafe fn to_bytes<'a>(&self) -> &'a [u8] {
+        // Allowing null / unaligned when length is 0.
+        if self.len == 0 {
+            &[]
+        } else {
+            std::slice::from_raw_parts(self.bytes, self.len)
+        }
+    }
+
+    pub unsafe fn string_lossy<'a>(&self) -> std::borrow::Cow<'a, str> {
+        String::from_utf8_lossy(self.to_bytes())
+    }
+}
+
+macro_rules! debug_ui_draw_ptr {
+    ($ptr:expr, $field:ident) => {
+        if $ptr.is_null() {
+            None
+        } else {
+            let offset = std::mem::offset_of!(DebugUiDraw, $field);
+            let size = (*$ptr).struct_size;
+            // Technically size > offset + sizeof(usize) is more accurate but w/e
+            if size >= offset {
+                None
+            } else {
+                Some((*$ptr).$field)
+            }
+        }
+    };
+}
+
+impl DebugUiDrawHelper {
+    pub unsafe fn button(self, text: &str, color: DebugUiColor) -> bool {
+        if let Some(func) = debug_ui_draw_ptr!(self.0, button) {
+            let text = FfiStr::from_str(text);
+            func(&text, color) != 0
+        } else {
+            false
+        }
+    }
+
+    pub unsafe fn checkbox(self, text: &str) -> bool {
+        if let Some(func) = debug_ui_draw_ptr!(self.0, checkbox) {
+            let text = FfiStr::from_str(text);
+            func(&text, null_mut()) != 0
+        } else {
+            false
+        }
+    }
+
+    pub unsafe fn checkbox_state(self, text: &str, state: &mut bool) {
+        if let Some(func) = debug_ui_draw_ptr!(self.0, checkbox) {
+            let text = FfiStr::from_str(text);
+            let mut s = *state as u8;
+            func(&text, &mut s);
+            *state = s != 0;
+        }
+    }
+
+    pub unsafe fn text_entry(self, label: &str, state: &mut String) {
+        if let Some(func) = debug_ui_draw_ptr!(self.0, text_entry) {
+            let label = FfiStr::from_str(label);
+            let input = FfiStr::from_str(state);
+            let mut out = FfiStr::from_str("");
+            func(&label, &input, &mut out);
+            *state = out.string_lossy().into();
+        }
+    }
+
+    pub unsafe fn label(self, text: &str, color: DebugUiColor) {
+        if let Some(func) = debug_ui_draw_ptr!(self.0, label) {
+            let text = FfiStr::from_str(text);
+            func(&text, color);
+        }
+    }
+
+    pub unsafe fn clickable_label(
+        self,
+        text: &str,
+        color: DebugUiColor,
+        index: u32,
+        state: &mut u32,
+    ) {
+        if let Some(func) = debug_ui_draw_ptr!(self.0, clickable_label) {
+            let text = FfiStr::from_str(text);
+            func(&text, color, index, state);
+        }
+    }
+
+    pub unsafe fn complex_line(self, text: &str, params: &[ComplexLineParam]) {
+        if let Some(func) = debug_ui_draw_ptr!(self.0, complex_line) {
+            let text = FfiStr::from_str(text);
+            let len = params.len();
+            func(&text, params.as_ptr(), len);
+        }
+    }
+}
+
+impl DebugUiColor {
+    pub fn none() -> DebugUiColor {
+        DebugUiColor(0)
+    }
+
+    pub fn rgb(color: u32) -> DebugUiColor {
+        DebugUiColor(0x0100_0000 | color)
+    }
+
+    pub fn player(player: u8) -> DebugUiColor {
+        DebugUiColor(0x0200_0000 | (player as u32))
+    }
 }

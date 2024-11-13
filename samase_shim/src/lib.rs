@@ -1102,6 +1102,7 @@ pub fn init_1161() -> Context {
             load_vars,
             read_vars,
             write_vars,
+            debug_ui_add_tab,
         };
         let mut patcher = PATCHER.lock();
         {
@@ -2322,6 +2323,15 @@ unsafe extern fn write_vars(vars: *const u16, values: *const usize, len: usize) 
     }
 }
 
+pub unsafe extern fn debug_ui_add_tab(
+    _tab: *const samase_plugin::FfiStr,
+    _subtab: *const samase_plugin::FfiStr,
+    _cb: samase_plugin::DebugUiDrawCb,
+    _ctx: *mut c_void,
+) -> usize {
+    0
+}
+
 unsafe extern fn misc_ui_state(out_size: usize) -> Option<unsafe extern fn(*mut u8)> {
     static OUT_SIZE: AtomicUsize = AtomicUsize::new(0);
     unsafe extern fn actual(out: *mut u8) {
@@ -2558,7 +2568,7 @@ unsafe fn apply_aiscript_hooks(
             0x56, // push esi (aiscript)
             0xb8, // mov eax, ...
         ]).unwrap();
-        asm.write_u32::<LE>(mem::transmute(fun)).unwrap();
+        asm.write_u32::<LE>(fun as usize as u32).unwrap();
         asm.write_all(&[
             0xff, 0xd0, // call eax
             0x59, // pop ecx
@@ -2636,7 +2646,7 @@ unsafe fn apply_iscript_hooks(
             0x57, // push edi (iscript_bin)
             0xb8, // mov eax, ...
         ]).unwrap();
-        asm.write_u32::<LE>(mem::transmute(fun)).unwrap();
+        asm.write_u32::<LE>(fun as usize as u32).unwrap();
         asm.write_all(&[
             0xff, 0xd0, // call eax
             0x83, 0xc4, 0x14, // add esp, 14
