@@ -17,4 +17,4 @@ path = ".."
 
 [dependencies.whack]
 git = "https://github.com/neivv/whack/"
-rev = "118ab14a36312728949bf7c286b30dde473df8c7"
+rev = "2d1adbae09d75bdaa2af65b0af12760740cd3d2b"

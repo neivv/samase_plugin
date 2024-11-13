@@ -3,6 +3,7 @@
 use std::cell::{Cell, RefCell, RefMut};
 use std::ffi::{CStr, CString};
 use std::io::{self, Write};
+use std::marker::PhantomData;
 use std::mem;
 use std::ptr::{null, null_mut};
 use std::slice;
@@ -135,22 +136,28 @@ struct InternalContext {
     save_extensions_used: bool,
 }
 
-enum FnTraitGlobal<T> {
-    Set(T),
-    NotSet,
+struct FnTraitGlobal<T> {
+    state: AtomicUsize,
+    phantom: PhantomData<T>,
 }
 
 unsafe impl<T> Sync for FnTraitGlobal<T> { }
+
 impl<T: Copy + Clone> FnTraitGlobal<T> {
-    fn set(&mut self, val: T) {
-        *self = FnTraitGlobal::Set(val);
+    const fn new() -> FnTraitGlobal<T> {
+        FnTraitGlobal {
+            state: AtomicUsize::new(0),
+            phantom: PhantomData,
+        }
     }
 
-    unsafe fn get(&mut self) -> T {
-        match *self {
-            FnTraitGlobal::Set(val) => val,
-            FnTraitGlobal::NotSet => panic!("Accessing FnTraitGlobal without setting it"),
-        }
+    unsafe fn set(&self, val: T) {
+        self.state.store(mem::transmute_copy::<T, usize>(&val), Ordering::Relaxed);
+    }
+
+    unsafe fn get(&self) -> T {
+        let val = self.state.load(Ordering::Relaxed);
+        mem::transmute_copy::<usize, T>(&val)
     }
 }
 
@@ -259,8 +266,8 @@ impl Drop for Context {
                 exe.hook_closure(bw::StepOrder, move |unit, orig| {
                     // Sketchy, whack should just give fnptrs as the fn traits it currently gives
                     // are stateless anyways.
-                    static mut ORIG: FnTraitGlobal<unsafe extern fn(*mut c_void)> =
-                        FnTraitGlobal::NotSet;
+                    static ORIG: FnTraitGlobal<unsafe extern fn(*mut c_void)> =
+                        FnTraitGlobal::new();
                     ORIG.set(orig);
                     unsafe extern fn call_orig(unit: *mut c_void) {
                         let orig = ORIG.get();
@@ -271,8 +278,8 @@ impl Drop for Context {
             }
             for hook in ctx.step_order_hidden {
                 exe.hook_closure(bw::StepOrder_Hidden, move |unit, orig| {
-                    static mut ORIG: FnTraitGlobal<unsafe extern fn(*mut c_void)> =
-                        FnTraitGlobal::NotSet;
+                    static ORIG: FnTraitGlobal<unsafe extern fn(*mut c_void)> =
+                        FnTraitGlobal::new();
                     ORIG.set(orig);
                     unsafe extern fn call_orig(unit: *mut c_void) {
                         let orig = ORIG.get();
@@ -283,8 +290,8 @@ impl Drop for Context {
             }
             for hook in ctx.step_secondary_order {
                 exe.hook_closure(bw::StepSecondaryOrder, move |unit, orig| {
-                    static mut ORIG: FnTraitGlobal<unsafe extern fn(*mut c_void)> =
-                        FnTraitGlobal::NotSet;
+                    static ORIG: FnTraitGlobal<unsafe extern fn(*mut c_void)> =
+                        FnTraitGlobal::new();
                     ORIG.set(orig);
                     unsafe extern fn call_orig(unit: *mut c_void) {
                         let orig = ORIG.get();
@@ -295,8 +302,8 @@ impl Drop for Context {
             }
             for hook in ctx.send_command {
                 exe.hook_closure(bw::SendCommand, move |data, len, orig| {
-                    static mut ORIG: FnTraitGlobal<unsafe extern fn(*mut c_void, u32)> =
-                        FnTraitGlobal::NotSet;
+                    static ORIG: FnTraitGlobal<unsafe extern fn(*mut c_void, u32)> =
+                        FnTraitGlobal::new();
                     ORIG.set(orig);
                     unsafe extern fn call_orig(data: *mut c_void, len: u32) {
                         let orig = ORIG.get();
@@ -309,9 +316,9 @@ impl Drop for Context {
                 exe.hook_closure(
                     bw::ProcessCommands,
                     move |data, len, replay, orig| {
-                        static mut ORIG:
+                        static ORIG:
                             FnTraitGlobal<unsafe extern fn(*const c_void, u32, u32)> =
-                            FnTraitGlobal::NotSet;
+                            FnTraitGlobal::new();
                         ORIG.set(orig);
                         unsafe extern fn call_orig(data: *const c_void, len: u32, replay: u32) {
                             let orig = ORIG.get();
@@ -325,9 +332,9 @@ impl Drop for Context {
                 exe.hook_closure(
                     bw::ProcessLobbyCommands,
                     move |data, len, replay, orig| {
-                        static mut ORIG:
+                        static ORIG:
                             FnTraitGlobal<unsafe extern fn(*const c_void, u32, u32)> =
-                            FnTraitGlobal::NotSet;
+                            FnTraitGlobal::new();
                         ORIG.set(orig);
                         unsafe extern fn call_orig(data: *const c_void, len: u32, replay: u32) {
                             let orig = ORIG.get();
@@ -339,8 +346,8 @@ impl Drop for Context {
             }
             for hook in ctx.game_screen_rclick {
                 exe.hook_closure(bw::GameScreenRClick, move |event, orig| {
-                    static mut ORIG: FnTraitGlobal<unsafe extern fn(*mut c_void)> =
-                        FnTraitGlobal::NotSet;
+                    static ORIG: FnTraitGlobal<unsafe extern fn(*mut c_void)> =
+                        FnTraitGlobal::new();
                     ORIG.set(orig);
                     unsafe extern fn call_orig(event: *mut c_void) {
                         let orig = ORIG.get();
@@ -351,8 +358,8 @@ impl Drop for Context {
             }
             for hook in ctx.draw_image {
                 exe.hook_closure(bw::DrawImage, move |image, orig| {
-                    static mut ORIG: FnTraitGlobal<unsafe extern fn(*mut bw::Image)> =
-                        FnTraitGlobal::NotSet;
+                    static ORIG: FnTraitGlobal<unsafe extern fn(*mut bw::Image)> =
+                        FnTraitGlobal::new();
                     ORIG.set(orig);
                     unsafe extern fn call_orig(image: *mut c_void) {
                         let orig = ORIG.get();
@@ -365,9 +372,9 @@ impl Drop for Context {
                 exe.hook_closure(
                     bw::RunDialog,
                     move |dialog, event_handler, orig| {
-                        static mut ORIG:
+                        static ORIG:
                             FnTraitGlobal<unsafe extern fn(*mut c_void, *mut c_void) -> u32> =
-                            FnTraitGlobal::NotSet;
+                            FnTraitGlobal::new();
                         ORIG.set(mem::transmute(orig));
                         unsafe extern fn call_orig(
                             dialog: *mut c_void,
@@ -385,9 +392,9 @@ impl Drop for Context {
                 exe.hook_closure(
                     bw::SpawnDialog,
                     move |dialog, event_handler, orig| {
-                        static mut ORIG:
+                        static ORIG:
                             FnTraitGlobal<unsafe extern fn(*mut c_void, *mut c_void) -> u32> =
-                            FnTraitGlobal::NotSet;
+                            FnTraitGlobal::new();
                         ORIG.set(mem::transmute(orig));
                         unsafe extern fn call_orig(
                             dialog: *mut c_void,
@@ -405,9 +412,9 @@ impl Drop for Context {
                 exe.hook_closure(
                     bw::CreateBullet,
                     move |id, x, y, player, direction, parent, orig| {
-                        static mut ORIG: FnTraitGlobal<
+                        static ORIG: FnTraitGlobal<
                                 unsafe extern fn(u32, i32, i32, u32, u32, *mut c_void) -> *mut c_void
-                            > = FnTraitGlobal::NotSet;
+                            > = FnTraitGlobal::new();
                         ORIG.set(mem::transmute(orig));
                         unsafe extern fn call_orig(
                             id: u32,
@@ -428,9 +435,9 @@ impl Drop for Context {
                 exe.hook_closure(
                     bw::CreateUnit,
                     move |id, x, y, player, orig| {
-                        static mut ORIG: FnTraitGlobal<
+                        static ORIG: FnTraitGlobal<
                                 unsafe extern fn(u32, i32, i32, u32) -> *mut c_void
-                            > = FnTraitGlobal::NotSet;
+                            > = FnTraitGlobal::new();
                         ORIG.set(mem::transmute(orig));
                         unsafe extern fn call_orig(
                             id: u32,
@@ -1326,7 +1333,7 @@ unsafe extern fn player_ai_towns() -> Option<unsafe extern fn() -> *mut c_void> 
 
 unsafe extern fn first_guard_ai() -> Option<unsafe extern fn() -> *mut c_void> {
     unsafe extern fn actual() -> *mut c_void {
-        bw::guard_ais.as_ptr() as *mut c_void
+        bw::guard_ais.ptr() as *mut c_void
     }
     Some(actual)
 }
@@ -1695,7 +1702,7 @@ unsafe extern fn dat(dat: u32) -> Option<unsafe extern fn() -> *mut c_void> {
         ($($name:ident,)*) => {
             $(
                 unsafe extern fn $name() -> *mut c_void {
-                    bw::$name.as_ptr() as *mut c_void
+                    bw::$name.ptr() as *mut c_void
                 }
             )*
         }
@@ -1734,7 +1741,7 @@ unsafe extern fn extended_dat(dat: u32) -> Option<unsafe extern fn(*mut usize) -
             $(
                 unsafe extern fn $name(len: *mut usize) -> *mut c_void {
                     *len = $len;
-                    bw::$name.as_ptr() as *mut c_void
+                    bw::$name.ptr() as *mut c_void
                 }
             )*
         }
@@ -1870,8 +1877,8 @@ unsafe extern fn hook_ai_focus_air(
 
 unsafe extern fn unit_base_strength() -> Option<unsafe extern fn(*mut *mut u32)> {
     unsafe extern fn actual(out: *mut *mut u32) {
-        *out = bw::unit_strength.as_mut_ptr();
-        *out.add(1) = bw::unit_strength.as_mut_ptr().add(0xe4);
+        *out = bw::unit_strength.mut_ptr() as *mut u32;
+        *out.add(1) = (bw::unit_strength.mut_ptr() as *mut u32).add(0xe4);
     }
     Some(actual)
 }
@@ -2544,7 +2551,7 @@ unsafe fn apply_aiscript_hooks(
     // Going to set last as !0 so other plugins using this same shim can use it
     // to count patched switch table length
     let unpatched_switch_table =
-        *bw::aiscript_switch_table_ptr == bw::aiscript_default_switch_table.as_mut_ptr();
+        *bw::aiscript_switch_table_ptr == bw::aiscript_default_switch_table.ptr() as *mut u32;
     let old_opcode_count = if unpatched_switch_table {
         0x71
     } else {
@@ -2617,7 +2624,7 @@ unsafe fn apply_iscript_hooks(
     // Going to set last as !0 so other plugins using this same shim can use it
     // to count patched switch table length
     let unpatched_switch_table =
-        *bw::iscript_switch_table_ptr == bw::iscript_default_switch_table.as_mut_ptr();
+        *bw::iscript_switch_table_ptr == bw::iscript_default_switch_table.ptr() as *mut u32;
     let old_opcode_count = if unpatched_switch_table {
         0x45
     } else {
