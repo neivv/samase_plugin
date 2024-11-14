@@ -276,6 +276,11 @@ pub struct DebugUiDraw {
     // Text, params, param_count
     // "[]" in text gets replaced by params. No fancier formatting specifiers.
     pub complex_line: unsafe extern fn(*const FfiStr, *const ComplexLineParam, usize),
+    // Height, callback, callback_pram
+    pub scroll_area: unsafe extern fn(u32, DebugUiDrawCb, *mut c_void),
+    // Name, id_source_opt, callback, callback_param
+    pub collapsing: unsafe extern fn(*const FfiStr, *const FfiStr, DebugUiDrawCb, *mut c_void),
+    pub separator: unsafe extern fn(),
 }
 
 #[derive(Copy, Clone)]
@@ -618,6 +623,51 @@ impl DebugUiDrawHelper {
             let text = FfiStr::from_str(text);
             let len = params.len();
             func(&text, params.as_ptr(), len);
+        }
+    }
+
+    pub unsafe fn scroll_area<F: FnOnce(DebugUiDrawHelper)>(self, height: u32, cb: F) {
+        if let Some(func) = debug_ui_draw_ptr!(self.0, scroll_area) {
+            let mut ctx = Some(cb);
+            let ctx: &mut Option<F> = &mut ctx;
+            func(height, Self::ui_draw_cb::<F>, ctx as *mut Option<F> as *mut c_void);
+        }
+    }
+
+    unsafe extern "C" fn ui_draw_cb<F: FnOnce(DebugUiDrawHelper)>(
+        api: *const DebugUiDraw,
+        ctx: *mut c_void,
+    ) {
+        let ctx = ctx as *mut Option<F>;
+        let ctx = &mut *ctx;
+        (ctx.take().unwrap())(Self(api));
+    }
+
+    pub unsafe fn collapsing<F: FnOnce(DebugUiDrawHelper)>(
+        self,
+        text: &str,
+        id_source: Option<&str>,
+        cb: F,
+    ) {
+        if let Some(func) = debug_ui_draw_ptr!(self.0, collapsing) {
+            let text = FfiStr::from_str(text);
+            let mut ctx = Some(cb);
+            let ctx: &mut Option<F> = &mut ctx;
+            if let Some(id_source) = id_source {
+                let id_source = FfiStr::from_str(id_source);
+                func(
+                    &text,
+                    &id_source,
+                    Self::ui_draw_cb::<F>,
+                    ctx as *mut Option<F> as *mut c_void,
+                );
+            }
+        }
+    }
+
+    pub unsafe fn separator(self) {
+        if let Some(func) = debug_ui_draw_ptr!(self.0, separator) {
+            func();
         }
     }
 }
