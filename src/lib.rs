@@ -589,7 +589,11 @@ impl DebugUiDrawHelper {
         }
     }
 
-    pub unsafe fn label(self, text: &str, color: DebugUiColor) {
+    pub unsafe fn label(self, text: &str) {
+        self.label_colored(text, DebugUiColor::none())
+    }
+
+    pub unsafe fn label_colored(self, text: &str, color: DebugUiColor) {
         if let Some(func) = debug_ui_draw_ptr!(self.0, label) {
             let text = FfiStr::from_str(text);
             func(&text, color);
