@@ -250,6 +250,7 @@ pub enum ComplexLineParamType {
     UnitId = 1,
     Point = 2,
     AiRegion = 3,
+    AiTown = 4,
 }
 
 #[repr(transparent)]
@@ -540,11 +541,11 @@ macro_rules! debug_ui_draw_ptr {
         } else {
             let offset = std::mem::offset_of!(DebugUiDraw, $field);
             let size = (*$ptr).struct_size;
-            // Technically size > offset + sizeof(usize) is more accurate but w/e
-            if size >= offset {
-                None
-            } else {
+            // Technically size >= offset + sizeof(usize) is more accurate but w/e
+            if size > offset {
                 Some((*$ptr).$field)
+            } else {
+                None
             }
         }
     };
