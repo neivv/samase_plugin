@@ -269,6 +269,10 @@ pub enum ComplexLineParamType {
     Point = 2,
     AiRegion = 3,
     AiTown = 4,
+    TechId = 5,
+    UpgradeId = 6,
+    I32 = 7,
+    PlayerId = 8,
 }
 
 #[repr(transparent)]
