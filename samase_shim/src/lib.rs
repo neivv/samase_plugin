@@ -2348,8 +2348,8 @@ pub unsafe extern fn debug_ui_add_log() -> *mut samase_plugin::DebugUiLog {
 
 pub unsafe extern fn debug_log_add_data(
     _log: *mut samase_plugin::DebugUiLog,
-    _format: *const FfiStr,
-    _param: *const ComplexLineParam,
+    _format: *const samase_plugin::FfiStr,
+    _param: *const samase_plugin::ComplexLineParam,
     _param_count: usize,
     _unused_extra: *mut c_void,
 ) {
