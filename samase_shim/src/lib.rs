@@ -1110,6 +1110,9 @@ pub fn init_1161() -> Context {
             read_vars,
             write_vars,
             debug_ui_add_tab,
+            debug_ui_add_log,
+            debug_log_add_data,
+            debug_log_clear,
         };
         let mut patcher = PATCHER.lock();
         {
@@ -2337,6 +2340,24 @@ pub unsafe extern fn debug_ui_add_tab(
     _ctx: *mut c_void,
 ) -> usize {
     0
+}
+
+pub unsafe extern fn debug_ui_add_log() -> *mut samase_plugin::DebugUiLog {
+    null_mut()
+}
+
+pub unsafe extern fn debug_log_add_data(
+    _log: *mut samase_plugin::DebugUiLog,
+    _format: *const FfiStr,
+    _param: *const ComplexLineParam,
+    _param_count: usize,
+    _unused_extra: *mut c_void,
+) {
+}
+
+pub unsafe extern fn debug_log_clear(
+    _log: *mut samase_plugin::DebugUiLog,
+) {
 }
 
 unsafe extern fn misc_ui_state(out_size: usize) -> Option<unsafe extern fn(*mut u8)> {

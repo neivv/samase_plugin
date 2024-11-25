@@ -10,7 +10,7 @@ use libc::c_void;
 use crate::commands::{CommandLength, IngameCommandHook};
 use crate::save::{SaveHook, LoadHook};
 
-pub const VERSION: u16 = 41;
+pub const VERSION: u16 = 42;
 pub const MAX_FUNC_ID: u16 = FuncId::_Last as u16;
 pub const MAX_VAR_ID: u16 = VarId::_Last as u16;
 
@@ -230,7 +230,23 @@ pub struct PluginApi {
     // Return 0 if debug ui is disabled.
     pub debug_ui_add_tab:
         unsafe extern fn(*const FfiStr, *const FfiStr, DebugUiDrawCb, *mut c_void) -> usize,
+    // Return null if debug ui is disabled.
+    pub debug_ui_add_log: unsafe extern fn() -> *mut DebugUiLog,
+    // Log, format, format params, format param count, extra (should be null)
+    // Expected to be stored and used outside samase_plugin_init.
+    // Does nothing if DebugUiLog is null, so caller doesn't have to null check if they
+    // don't want to.
+    // Format string must be valid until debug_log_clear call
+    pub debug_log_add_data: unsafe extern fn(
+        *mut DebugUiLog, *const FfiStr, *const ComplexLineParam, usize, *mut c_void,
+    ),
+    // Expected to be stored and used outside samase_plugin_init.
+    pub debug_log_clear: unsafe extern fn(*mut DebugUiLog),
 }
+
+// Extern struct.
+#[repr(C)]
+pub struct DebugUiLog(u32);
 
 #[repr(C)]
 pub struct FfiStr {
@@ -239,12 +255,14 @@ pub struct FfiStr {
 }
 
 #[repr(C)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub struct ComplexLineParam {
     pub data: *mut c_void,
     pub ty: u32,
 }
 
 #[repr(u32)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum ComplexLineParamType {
     Unit = 0,
     UnitId = 1,
@@ -281,6 +299,7 @@ pub struct DebugUiDraw {
     // Name, id_source_opt, callback, callback_param
     pub collapsing: unsafe extern fn(*const FfiStr, *const FfiStr, DebugUiDrawCb, *mut c_void),
     pub separator: unsafe extern fn(),
+    pub debug_log: unsafe extern fn(*mut DebugUiLog),
 }
 
 #[derive(Copy, Clone)]
@@ -668,6 +687,12 @@ impl DebugUiDrawHelper {
     pub unsafe fn separator(self) {
         if let Some(func) = debug_ui_draw_ptr!(self.0, separator) {
             func();
+        }
+    }
+
+    pub unsafe fn debug_log(self, log: *mut DebugUiLog) {
+        if let Some(func) = debug_ui_draw_ptr!(self.0, debug_log) {
+            func(log);
         }
     }
 }
