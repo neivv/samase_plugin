@@ -10,7 +10,7 @@ use libc::c_void;
 use crate::commands::{CommandLength, IngameCommandHook};
 use crate::save::{SaveHook, LoadHook};
 
-pub const VERSION: u16 = 42;
+pub const VERSION: u16 = 43;
 pub const MAX_FUNC_ID: u16 = FuncId::_Last as u16;
 pub const MAX_VAR_ID: u16 = VarId::_Last as u16;
 
@@ -242,6 +242,19 @@ pub struct PluginApi {
     ),
     // Expected to be stored and used outside samase_plugin_init.
     pub debug_log_clear: unsafe extern fn(*mut DebugUiLog),
+    // Allocates 4 bytes per unit of memory for later use between plugins.
+    // Takes in field name string, returns id that is stable for the process lifetime,
+    // but unstable between process launches. Repeated calls with same string return
+    // same id.
+    // Can be called outside plugin init function.
+    // Returns 0 if not supported.
+    pub create_extended_unit_field: unsafe extern fn(*const FfiStr) -> u32,
+    // unit index, field id -> value
+    // Can be called outside plugin init function.
+    pub read_extended_unit_field: unsafe extern fn(u32, u32) -> u32,
+    // unit index, field id, new value -> old value
+    // Can be called outside plugin init function.
+    pub write_extended_unit_field: unsafe extern fn(u32, u32, u32) -> u32,
 }
 
 // Extern struct.

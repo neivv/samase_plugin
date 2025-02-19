@@ -1113,6 +1113,9 @@ pub fn init_1161() -> Context {
             debug_ui_add_log,
             debug_log_add_data,
             debug_log_clear,
+            create_extended_unit_field,
+            read_extended_unit_field,
+            write_extended_unit_field,
         };
         let mut patcher = PATCHER.lock();
         {
@@ -2358,6 +2361,21 @@ pub unsafe extern fn debug_log_add_data(
 pub unsafe extern fn debug_log_clear(
     _log: *mut samase_plugin::DebugUiLog,
 ) {
+}
+
+unsafe extern fn create_extended_unit_field(_: *const samase_plugin::FfiStr) -> u32 {
+    // Not implemented
+    0
+}
+
+unsafe extern fn read_extended_unit_field(_: u32, _: u32) -> u32 {
+    // Not implemented
+    0
+}
+
+unsafe extern fn write_extended_unit_field(_: u32, _: u32, _: u32) -> u32 {
+    // Not implemented
+    0
 }
 
 unsafe extern fn misc_ui_state(out_size: usize) -> Option<unsafe extern fn(*mut u8)> {
