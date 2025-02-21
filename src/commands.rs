@@ -9,8 +9,8 @@ use parking_lot::{Mutex, MutexGuard, RwLock, const_mutex, const_rwlock};
 
 // data, len, game player, unique player, orig
 pub type IngameCommandHook =
-    unsafe extern fn(*const u8, u32, u32, u32, unsafe extern fn(*const u8, u32));
-pub type CommandLength = unsafe extern fn(*const u8, u32) -> u32;
+    unsafe extern "C" fn(*const u8, u32, u32, u32, unsafe extern "C" fn(*const u8, u32));
+pub type CommandLength = unsafe extern "C" fn(*const u8, u32) -> u32;
 
 static INGAME_HOOKS: RwLock<Vec<(u8, IngameCommandHook)>> = const_rwlock(Vec::new());
 static COMMAND_LENGTHS: OnceCell<&CommandLengths> = OnceCell::new();
@@ -45,7 +45,7 @@ impl CommandLengths {
     }
 }
 
-unsafe extern fn save_command_length(cmd: *const u8, len: u32) -> u32 {
+unsafe extern "C" fn save_command_length(cmd: *const u8, len: u32) -> u32 {
     let len = len as usize;
     let mut pos = 5;
     while pos < len {
@@ -57,7 +57,7 @@ unsafe extern fn save_command_length(cmd: *const u8, len: u32) -> u32 {
     u32::MAX
 }
 
-unsafe extern fn select_command_legacy_length(cmd: *const u8, len: u32) -> u32 {
+unsafe extern "C" fn select_command_legacy_length(cmd: *const u8, len: u32) -> u32 {
     if len < 2 {
         u32::MAX
     } else {
@@ -65,7 +65,7 @@ unsafe extern fn select_command_legacy_length(cmd: *const u8, len: u32) -> u32 {
     }
 }
 
-unsafe extern fn select_command_extended_length(cmd: *const u8, len: u32) -> u32 {
+unsafe extern "C" fn select_command_extended_length(cmd: *const u8, len: u32) -> u32 {
     if len < 2 {
         u32::MAX
     } else {
@@ -88,7 +88,7 @@ struct HookCallState<'a> {
     orig_hooks: &'a [(u8, IngameCommandHook)],
     remaining_hooks: &'a [(u8, IngameCommandHook)],
     globals: &'a IngameHookGlobals,
-    orig: unsafe extern fn(*const c_void, u32, u32),
+    orig: unsafe extern "C" fn(*const c_void, u32, u32),
     id: u8,
     replayed_command: u32,
 }
@@ -97,15 +97,15 @@ pub struct IngameHookGlobals {
     pub is_replay: u32,
     pub unique_command_user: u32,
     pub command_user: u32,
-    pub add_to_replay_data: unsafe extern fn(*const u8, usize),
+    pub add_to_replay_data: unsafe extern "C" fn(*const u8, usize),
 }
 
-pub unsafe extern fn ingame_hook(
+pub unsafe extern "C" fn ingame_hook(
     data: *const c_void,
     len: u32,
     replayed_command: u32,
     globals: &IngameHookGlobals,
-    orig: unsafe extern fn(*const c_void, u32, u32),
+    orig: unsafe extern "C" fn(*const c_void, u32, u32),
 ) {
     let data = slice::from_raw_parts(data as *const u8, len as usize);
     let hooks = INGAME_HOOKS.read();
@@ -141,9 +141,9 @@ unsafe fn handle_ingame_hooks(
     cmd: &[u8],
     replayed_command: u32,
     globals: &IngameHookGlobals,
-    orig: unsafe extern fn(*const c_void, u32, u32),
+    orig: unsafe extern "C" fn(*const c_void, u32, u32),
 ) {
-    unsafe extern fn call_orig(data: *const u8, len: u32) {
+    unsafe extern "C" fn call_orig(data: *const u8, len: u32) {
         if len == 0 {
             return;
         }

@@ -26,190 +26,190 @@ pub struct ExtendedArray {
 pub struct PluginApi {
     pub version: u16,
     pub max_func_id: u16,
-    pub free_memory: unsafe extern fn(*mut u8),
-    pub write_exe_memory: unsafe extern fn(usize, *const u8, usize) -> u32,
-    pub warn_unsupported_feature: unsafe extern fn(*const u8),
-    pub read_file: unsafe extern fn() -> unsafe extern fn(*const u8, *mut usize) -> *mut u8,
-    pub game: unsafe extern fn() -> Option<unsafe extern fn() -> *mut c_void>,
-    pub rng_seed: unsafe extern fn() -> Option<unsafe extern fn() -> u32>,
-    pub hook_step_objects: unsafe extern fn(unsafe extern fn(), u32) -> u32,
-    pub hook_aiscript_opcode: unsafe extern fn(u32, unsafe extern fn(*mut c_void)) -> u32,
-    pub ai_regions: unsafe extern fn() -> Option<unsafe extern fn() -> *mut c_void>,
-    pub player_ai: unsafe extern fn() -> Option<unsafe extern fn() -> *mut c_void>,
-    pub get_region: unsafe extern fn() -> Option<unsafe extern fn(u32, u32) -> u32>,
-    pub change_ai_region_state: unsafe extern fn() -> Option<unsafe extern fn(*mut c_void, u32)>,
-    pub first_active_unit: unsafe extern fn() -> Option<unsafe extern fn() -> *mut c_void>,
-    pub first_hidden_unit: unsafe extern fn() -> Option<unsafe extern fn() -> *mut c_void>,
+    pub free_memory: unsafe extern "C" fn(*mut u8),
+    pub write_exe_memory: unsafe extern "C" fn(usize, *const u8, usize) -> u32,
+    pub warn_unsupported_feature: unsafe extern "C" fn(*const u8),
+    pub read_file: unsafe extern "C" fn() -> unsafe extern "C" fn(*const u8, *mut usize) -> *mut u8,
+    pub game: unsafe extern "C" fn() -> Option<unsafe extern "C" fn() -> *mut c_void>,
+    pub rng_seed: unsafe extern "C" fn() -> Option<unsafe extern "C" fn() -> u32>,
+    pub hook_step_objects: unsafe extern "C" fn(unsafe extern "C" fn(), u32) -> u32,
+    pub hook_aiscript_opcode: unsafe extern "C" fn(u32, unsafe extern "C" fn(*mut c_void)) -> u32,
+    pub ai_regions: unsafe extern "C" fn() -> Option<unsafe extern "C" fn() -> *mut c_void>,
+    pub player_ai: unsafe extern "C" fn() -> Option<unsafe extern "C" fn() -> *mut c_void>,
+    pub get_region: unsafe extern "C" fn() -> Option<unsafe extern "C" fn(u32, u32) -> u32>,
+    pub change_ai_region_state: unsafe extern "C" fn() -> Option<unsafe extern "C" fn(*mut c_void, u32)>,
+    pub first_active_unit: unsafe extern "C" fn() -> Option<unsafe extern "C" fn() -> *mut c_void>,
+    pub first_hidden_unit: unsafe extern "C" fn() -> Option<unsafe extern "C" fn() -> *mut c_void>,
     // self, order, x, y, target, fow_unit
-    pub issue_order: unsafe extern fn() ->
-        Option<unsafe extern fn(*mut c_void, u32, u32, u32, *mut c_void, u32)>,
-    pub print_text: unsafe extern fn() -> Option<unsafe extern fn(*const u8)>,
-    pub hook_on_first_file_access: unsafe extern fn(unsafe extern fn()),
+    pub issue_order: unsafe extern "C" fn() ->
+        Option<unsafe extern "C" fn(*mut c_void, u32, u32, u32, *mut c_void, u32)>,
+    pub print_text: unsafe extern "C" fn() -> Option<unsafe extern "C" fn(*const u8)>,
+    pub hook_on_first_file_access: unsafe extern "C" fn(unsafe extern "C" fn()),
     pub hook_step_order:
-        unsafe extern fn(unsafe extern fn(*mut c_void, unsafe extern fn(*mut c_void))) -> u32,
+        unsafe extern "C" fn(unsafe extern "C" fn(*mut c_void, unsafe extern "C" fn(*mut c_void))) -> u32,
     pub hook_step_order_hidden:
-        unsafe extern fn(unsafe extern fn(*mut c_void, unsafe extern fn(*mut c_void))) -> u32,
-    pub dat: unsafe extern fn(u32) -> Option<unsafe extern fn() -> *mut c_void>,
-    pub hook_process_commands: unsafe extern fn(
-        unsafe extern fn(*const c_void, u32, u32, unsafe extern fn(*const c_void, u32, u32))
+        unsafe extern "C" fn(unsafe extern "C" fn(*mut c_void, unsafe extern "C" fn(*mut c_void))) -> u32,
+    pub dat: unsafe extern "C" fn(u32) -> Option<unsafe extern "C" fn() -> *mut c_void>,
+    pub hook_process_commands: unsafe extern "C" fn(
+        unsafe extern "C" fn(*const c_void, u32, u32, unsafe extern "C" fn(*const c_void, u32, u32))
     ) -> u32,
-    pub hook_process_lobby_commands: unsafe extern fn(
-        unsafe extern fn(*const c_void, u32, u32, unsafe extern fn(*const c_void, u32, u32))
+    pub hook_process_lobby_commands: unsafe extern "C" fn(
+        unsafe extern "C" fn(*const c_void, u32, u32, unsafe extern "C" fn(*const c_void, u32, u32))
     ) -> u32,
-    pub hook_send_command: unsafe extern fn(
-        unsafe extern fn(*mut c_void, u32, unsafe extern fn(*mut c_void, u32))
+    pub hook_send_command: unsafe extern "C" fn(
+        unsafe extern "C" fn(*mut c_void, u32, unsafe extern "C" fn(*mut c_void, u32))
     ) -> u32,
     pub hook_step_secondary_order:
-        unsafe extern fn(unsafe extern fn(*mut c_void, unsafe extern fn(*mut c_void))) -> u32,
-    pub extend_save: unsafe extern fn(*const u8, SaveHook, LoadHook, unsafe extern fn()) -> u32,
+        unsafe extern "C" fn(unsafe extern "C" fn(*mut c_void, unsafe extern "C" fn(*mut c_void))) -> u32,
+    pub extend_save: unsafe extern "C" fn(*const u8, SaveHook, LoadHook, unsafe extern "C" fn()) -> u32,
     pub hook_ingame_command:
-        unsafe extern fn(u32, IngameCommandHook, Option<CommandLength>) -> u32,
-    pub units: unsafe extern fn() -> Option<unsafe extern fn() -> *mut c_void>,
-    pub selections: unsafe extern fn() -> Option<unsafe extern fn() -> *mut c_void>,
-    pub first_ai_script: unsafe extern fn() -> Option<unsafe extern fn() -> *mut c_void>,
+        unsafe extern "C" fn(u32, IngameCommandHook, Option<CommandLength>) -> u32,
+    pub units: unsafe extern "C" fn() -> Option<unsafe extern "C" fn() -> *mut c_void>,
+    pub selections: unsafe extern "C" fn() -> Option<unsafe extern "C" fn() -> *mut c_void>,
+    pub first_ai_script: unsafe extern "C" fn() -> Option<unsafe extern "C" fn() -> *mut c_void>,
     pub hook_game_screen_rclick:
-        unsafe extern fn(unsafe extern fn(*mut c_void, unsafe extern fn(*mut c_void))) -> u32,
-    pub client_selection: unsafe extern fn() -> Option<unsafe extern fn() -> *mut c_void>,
+        unsafe extern "C" fn(unsafe extern "C" fn(*mut c_void, unsafe extern "C" fn(*mut c_void))) -> u32,
+    pub client_selection: unsafe extern "C" fn() -> Option<unsafe extern "C" fn() -> *mut c_void>,
     // type, id
-    pub dat_requirements: unsafe extern fn() -> Option<unsafe extern fn(u32, u32) -> *const u16>,
-    pub first_guard_ai: unsafe extern fn() -> Option<unsafe extern fn() -> *mut c_void>,
-    pub pathing: unsafe extern fn() -> Option<unsafe extern fn() -> *mut c_void>,
-    pub set_first_ai_script: unsafe extern fn() -> Option<unsafe extern fn(*mut c_void)>,
-    pub first_free_ai_script: unsafe extern fn() -> Option<unsafe extern fn() -> *mut c_void>,
-    pub set_first_free_ai_script: unsafe extern fn() -> Option<unsafe extern fn(*mut c_void)>,
-    pub player_ai_towns: unsafe extern fn() -> Option<unsafe extern fn() -> *mut c_void>,
-    pub map_tile_flags: unsafe extern fn() -> Option<unsafe extern fn() -> *mut u32>,
-    pub players: unsafe extern fn() -> Option<unsafe extern fn() -> *mut c_void>,
-    pub hook_draw_image: unsafe extern fn(
-        unsafe extern fn(*mut c_void, unsafe extern fn(*mut c_void))
+    pub dat_requirements: unsafe extern "C" fn() -> Option<unsafe extern "C" fn(u32, u32) -> *const u16>,
+    pub first_guard_ai: unsafe extern "C" fn() -> Option<unsafe extern "C" fn() -> *mut c_void>,
+    pub pathing: unsafe extern "C" fn() -> Option<unsafe extern "C" fn() -> *mut c_void>,
+    pub set_first_ai_script: unsafe extern "C" fn() -> Option<unsafe extern "C" fn(*mut c_void)>,
+    pub first_free_ai_script: unsafe extern "C" fn() -> Option<unsafe extern "C" fn() -> *mut c_void>,
+    pub set_first_free_ai_script: unsafe extern "C" fn() -> Option<unsafe extern "C" fn(*mut c_void)>,
+    pub player_ai_towns: unsafe extern "C" fn() -> Option<unsafe extern "C" fn() -> *mut c_void>,
+    pub map_tile_flags: unsafe extern "C" fn() -> Option<unsafe extern "C" fn() -> *mut u32>,
+    pub players: unsafe extern "C" fn() -> Option<unsafe extern "C" fn() -> *mut c_void>,
+    pub hook_draw_image: unsafe extern "C" fn(
+        unsafe extern "C" fn(*mut c_void, unsafe extern "C" fn(*mut c_void))
     ) -> u32,
-    pub hook_renderer: unsafe extern fn(u32, unsafe extern fn()) -> u32,
-    pub get_iscript_bin: unsafe extern fn() -> Option<unsafe extern fn() -> *mut c_void>,
-    pub set_iscript_bin: unsafe extern fn() -> Option<unsafe extern fn(*mut c_void)>,
-    pub hook_iscript_opcode: unsafe extern fn(
+    pub hook_renderer: unsafe extern "C" fn(u32, unsafe extern "C" fn()) -> u32,
+    pub get_iscript_bin: unsafe extern "C" fn() -> Option<unsafe extern "C" fn() -> *mut c_void>,
+    pub set_iscript_bin: unsafe extern "C" fn() -> Option<unsafe extern "C" fn(*mut c_void)>,
+    pub hook_iscript_opcode: unsafe extern "C" fn(
         // Iscript pos, iscript ptr, image ptr, dry_run, speed_out, return new pos
-        u32, unsafe extern fn(*mut c_void, *mut c_void, *mut c_void, u32, *mut u32),
+        u32, unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void, u32, *mut u32),
     ) -> u32,
-    pub sprite_hlines: unsafe extern fn() -> Option<unsafe extern fn() -> *mut *mut c_void>,
-    pub sprite_hlines_end: unsafe extern fn() -> Option<unsafe extern fn() -> *mut *mut c_void>,
+    pub sprite_hlines: unsafe extern "C" fn() -> Option<unsafe extern "C" fn() -> *mut *mut c_void>,
+    pub sprite_hlines_end: unsafe extern "C" fn() -> Option<unsafe extern "C" fn() -> *mut *mut c_void>,
     pub hook_file_read:
-        unsafe extern fn(*const u8, unsafe extern fn(*const u8, *mut u32) -> *mut u8),
-    pub first_active_bullet: unsafe extern fn() -> Option<unsafe extern fn() -> *mut c_void>,
-    pub first_lone_sprite: unsafe extern fn() -> Option<unsafe extern fn() -> *mut c_void>,
+        unsafe extern "C" fn(*const u8, unsafe extern "C" fn(*const u8, *mut u32) -> *mut u8),
+    pub first_active_bullet: unsafe extern "C" fn() -> Option<unsafe extern "C" fn() -> *mut c_void>,
+    pub first_lone_sprite: unsafe extern "C" fn() -> Option<unsafe extern "C" fn() -> *mut c_void>,
     // Parent image, image_id, x, y, above
-    pub add_overlay_iscript: unsafe extern fn() ->
-        Option<unsafe extern fn(*mut c_void, u32, i32, i32, u32) -> *mut c_void>,
-    pub set_campaigns: unsafe extern fn(*const *mut c_void) -> u32,
-    pub hook_run_dialog: unsafe extern fn(
-        unsafe extern fn(
+    pub add_overlay_iscript: unsafe extern "C" fn() ->
+        Option<unsafe extern "C" fn(*mut c_void, u32, i32, i32, u32) -> *mut c_void>,
+    pub set_campaigns: unsafe extern "C" fn(*const *mut c_void) -> u32,
+    pub hook_run_dialog: unsafe extern "C" fn(
+        unsafe extern "C" fn(
             *mut c_void,
             usize,
             *mut c_void,
-            unsafe extern fn(*mut c_void, usize, *mut c_void) -> u32,
+            unsafe extern "C" fn(*mut c_void, usize, *mut c_void) -> u32,
         ) -> u32
     ) -> u32,
-    pub send_command: unsafe extern fn() -> Option<unsafe extern fn(*const c_void, u32)>,
+    pub send_command: unsafe extern "C" fn() -> Option<unsafe extern "C" fn(*const c_void, u32)>,
     pub ai_update_attack_target:
-        unsafe extern fn() -> Option<unsafe extern fn(*mut c_void, u32, u32, u32) -> u32>,
-    pub update_visibility_point: unsafe extern fn() -> Option<unsafe extern fn(*mut c_void)>,
+        unsafe extern "C" fn() -> Option<unsafe extern "C" fn(*mut c_void, u32, u32, u32) -> u32>,
+    pub update_visibility_point: unsafe extern "C" fn() -> Option<unsafe extern "C" fn(*mut c_void)>,
     pub create_lone_sprite:
-        unsafe extern fn() -> Option<unsafe extern fn(u32, i32, i32, u32) -> *mut c_void>,
+        unsafe extern "C" fn() -> Option<unsafe extern "C" fn(u32, i32, i32, u32) -> *mut c_void>,
     pub step_iscript:
-        unsafe extern fn() -> Option<unsafe extern fn(*mut c_void, *mut c_void, u32, *mut u32)>,
-    pub is_outside_game_screen: unsafe extern fn() -> Option<unsafe extern fn(i32, i32) -> u32>,
-    pub screen_pos: unsafe extern fn() -> Option<unsafe extern fn(*mut i32, *mut i32)>,
-    pub ui_scale: unsafe extern fn() -> Option<unsafe extern fn() -> f32>,
-    pub first_fow_sprite: unsafe extern fn() -> Option<unsafe extern fn() -> *mut c_void>,
-    pub is_replay: unsafe extern fn() -> Option<unsafe extern fn() -> u32>,
-    pub local_player_id: unsafe extern fn() -> Option<unsafe extern fn() -> u32>,
+        unsafe extern "C" fn() -> Option<unsafe extern "C" fn(*mut c_void, *mut c_void, u32, *mut u32)>,
+    pub is_outside_game_screen: unsafe extern "C" fn() -> Option<unsafe extern "C" fn(i32, i32) -> u32>,
+    pub screen_pos: unsafe extern "C" fn() -> Option<unsafe extern "C" fn(*mut i32, *mut i32)>,
+    pub ui_scale: unsafe extern "C" fn() -> Option<unsafe extern "C" fn() -> f32>,
+    pub first_fow_sprite: unsafe extern "C" fn() -> Option<unsafe extern "C" fn() -> *mut c_void>,
+    pub is_replay: unsafe extern "C" fn() -> Option<unsafe extern "C" fn() -> u32>,
+    pub local_player_id: unsafe extern "C" fn() -> Option<unsafe extern "C" fn() -> u32>,
     pub unit_array_len:
-        unsafe extern fn() -> Option<unsafe extern fn(*mut *mut c_void, *mut usize)>,
-    pub draw_cursor_marker: unsafe extern fn() -> Option<unsafe extern fn(u32)>,
-    pub hook_spawn_dialog: unsafe extern fn(
-        unsafe extern fn(
+        unsafe extern "C" fn() -> Option<unsafe extern "C" fn(*mut *mut c_void, *mut usize)>,
+    pub draw_cursor_marker: unsafe extern "C" fn() -> Option<unsafe extern "C" fn(u32)>,
+    pub hook_spawn_dialog: unsafe extern "C" fn(
+        unsafe extern "C" fn(
             *mut c_void,
             usize,
             *mut c_void,
-            unsafe extern fn(*mut c_void, usize, *mut c_void) -> u32,
+            unsafe extern "C" fn(*mut c_void, usize, *mut c_void) -> u32,
         ) -> u32
     ) -> u32,
-    pub misc_ui_state: unsafe extern fn(usize) -> Option<unsafe extern fn(*mut u8)>,
+    pub misc_ui_state: unsafe extern "C" fn(usize) -> Option<unsafe extern "C" fn(*mut u8)>,
     // bullet_id, x, y, player, direction, parent
-    pub create_bullet: unsafe extern fn() ->
-        Option<unsafe extern fn(u32, i32, i32, u32, u32, *mut c_void) -> *mut c_void>,
-    pub hook_create_bullet: unsafe extern fn(
-        unsafe extern fn(
+    pub create_bullet: unsafe extern "C" fn() ->
+        Option<unsafe extern "C" fn(u32, i32, i32, u32, u32, *mut c_void) -> *mut c_void>,
+    pub hook_create_bullet: unsafe extern "C" fn(
+        unsafe extern "C" fn(
             u32, i32, i32, u32, u32, *mut c_void,
-            unsafe extern fn(u32, i32, i32, u32, u32, *mut c_void) -> *mut c_void,
+            unsafe extern "C" fn(u32, i32, i32, u32, u32, *mut c_void) -> *mut c_void,
         ) -> *mut c_void,
     ) -> u32,
     // unit_id, x, y, player, skin
-    pub create_unit: unsafe extern fn() ->
-        Option<unsafe extern fn(u32, i32, i32, u32, *const u8) -> *mut c_void>,
-    pub hook_create_unit: unsafe extern fn(
-        unsafe extern fn(
+    pub create_unit: unsafe extern "C" fn() ->
+        Option<unsafe extern "C" fn(u32, i32, i32, u32, *const u8) -> *mut c_void>,
+    pub hook_create_unit: unsafe extern "C" fn(
+        unsafe extern "C" fn(
             u32, i32, i32, u32, *const u8,
-            unsafe extern fn(u32, i32, i32, u32, *const u8) -> *mut c_void,
+            unsafe extern "C" fn(u32, i32, i32, u32, *const u8) -> *mut c_void,
         ) -> *mut c_void,
     ) -> u32,
-    pub finish_unit_pre: unsafe extern fn() -> Option<unsafe extern fn(*mut c_void)>,
-    pub finish_unit_post: unsafe extern fn() -> Option<unsafe extern fn(*mut c_void)>,
+    pub finish_unit_pre: unsafe extern "C" fn() -> Option<unsafe extern "C" fn(*mut c_void)>,
+    pub finish_unit_post: unsafe extern "C" fn() -> Option<unsafe extern "C" fn(*mut c_void)>,
     pub get_sprite_position:
-        unsafe extern fn() -> Option<unsafe extern fn(*mut c_void, *mut u16)>,
+        unsafe extern "C" fn() -> Option<unsafe extern "C" fn(*mut c_void, *mut u16)>,
     pub set_sprite_position:
-        unsafe extern fn() -> Option<unsafe extern fn(*mut c_void, *const u16)>,
-    pub hook_init_units: unsafe extern fn(unsafe extern fn(unsafe extern fn())) -> u32,
+        unsafe extern "C" fn() -> Option<unsafe extern "C" fn(*mut c_void, *const u16)>,
+    pub hook_init_units: unsafe extern "C" fn(unsafe extern "C" fn(unsafe extern "C" fn())) -> u32,
     pub get_tooltip_draw_func:
-        unsafe extern fn() -> Option<unsafe extern fn() -> Option<unsafe extern fn(*mut c_void)>>,
+        unsafe extern "C" fn() -> Option<unsafe extern "C" fn() -> Option<unsafe extern "C" fn(*mut c_void)>>,
     pub set_tooltip_draw_func:
-        unsafe extern fn() -> Option<unsafe extern fn(Option<unsafe extern fn(*mut c_void)>)>,
-    pub hook_layout_draw_text: unsafe extern fn(
-        unsafe extern fn(
+        unsafe extern "C" fn() -> Option<unsafe extern "C" fn(Option<unsafe extern "C" fn(*mut c_void)>)>,
+    pub hook_layout_draw_text: unsafe extern "C" fn(
+        unsafe extern "C" fn(
             u32, u32, *const u8, *mut u32, u32, *mut u32, u32, u32,
-            unsafe extern fn(u32, u32, *const u8, *mut u32, u32, *mut u32, u32, u32) -> *const u8,
+            unsafe extern "C" fn(u32, u32, *const u8, *mut u32, u32, *mut u32, u32, u32) -> *const u8,
         ) -> *const u8,
     ) -> u32,
-    pub hook_draw_graphic_layers: unsafe extern fn(
-        unsafe extern fn(u32, unsafe extern fn(u32)),
+    pub hook_draw_graphic_layers: unsafe extern "C" fn(
+        unsafe extern "C" fn(u32, unsafe extern "C" fn(u32)),
     ) -> u32,
-    pub graphic_layers: unsafe extern fn() -> Option<unsafe extern fn() -> *mut c_void>,
+    pub graphic_layers: unsafe extern "C" fn() -> Option<unsafe extern "C" fn() -> *mut c_void>,
     // Arg 1 shader type (0 = Vertex, 1 = Pixel)
     // Arg 2 shader id
     // Arg 3 pointer (Must be a pointer to the entire set with static lifetime)
     // Arg 4 set size
-    pub set_prism_shaders: unsafe extern fn(u32, u32, *const u8, u32) -> u32,
+    pub set_prism_shaders: unsafe extern "C" fn(u32, u32, *const u8, u32) -> u32,
     // Can be stored and called after plugin initialization function.
-    pub crash_with_message: unsafe extern fn(*const u8) -> !,
+    pub crash_with_message: unsafe extern "C" fn(*const u8) -> !,
     pub ai_attack_prepare:
-        unsafe extern fn() -> Option<unsafe extern fn(u32, u32, u32, u32, u32) -> u32>,
-    pub hook_ai_step_region: unsafe extern fn(
-        unsafe extern fn(u32, u32, unsafe extern fn(u32, u32))
+        unsafe extern "C" fn() -> Option<unsafe extern "C" fn(u32, u32, u32, u32, u32) -> u32>,
+    pub hook_ai_step_region: unsafe extern "C" fn(
+        unsafe extern "C" fn(u32, u32, unsafe extern "C" fn(u32, u32))
     ) -> u32,
-    pub extended_arrays: unsafe extern fn(*mut *mut ExtendedArray) -> usize,
+    pub extended_arrays: unsafe extern "C" fn(*mut *mut ExtendedArray) -> usize,
     pub extended_dat:
-        unsafe extern fn(u32) -> Option<unsafe extern fn(*mut usize) -> *mut c_void>,
-    pub give_ai: unsafe extern fn() -> Option<unsafe extern fn(*mut c_void)>,
-    pub hook_play_sound: unsafe extern fn(
-        unsafe extern fn(
+        unsafe extern "C" fn(u32) -> Option<unsafe extern "C" fn(*mut usize) -> *mut c_void>,
+    pub give_ai: unsafe extern "C" fn() -> Option<unsafe extern "C" fn(*mut c_void)>,
+    pub hook_play_sound: unsafe extern "C" fn(
+        unsafe extern "C" fn(
             u32, f32, *mut c_void, *mut i32, *mut i32,
-            unsafe extern fn(u32, f32, *mut c_void, *mut i32, *mut i32) -> u32,
+            unsafe extern "C" fn(u32, f32, *mut c_void, *mut i32, *mut i32) -> u32,
         ) -> u32
     ) -> u32,
-    pub is_multiplayer: unsafe extern fn() -> Option<unsafe extern fn() -> u32>,
-    pub hook_game_loop_start: unsafe extern fn(unsafe extern fn()) -> u32,
+    pub is_multiplayer: unsafe extern "C" fn() -> Option<unsafe extern "C" fn() -> u32>,
+    pub hook_game_loop_start: unsafe extern "C" fn(unsafe extern "C" fn()) -> u32,
     pub active_iscript_objects:
-        unsafe extern fn() -> Option<unsafe extern fn(*mut *mut c_void, *const *mut c_void)>,
-    pub hook_ai_focus_disabled: unsafe extern fn(
-        unsafe extern fn(*mut c_void, unsafe extern fn(*mut c_void))
+        unsafe extern "C" fn() -> Option<unsafe extern "C" fn(*mut *mut c_void, *const *mut c_void)>,
+    pub hook_ai_focus_disabled: unsafe extern "C" fn(
+        unsafe extern "C" fn(*mut c_void, unsafe extern "C" fn(*mut c_void))
     ) -> u32,
-    pub hook_ai_focus_air: unsafe extern fn(
-        unsafe extern fn(*mut c_void, unsafe extern fn(*mut c_void))
+    pub hook_ai_focus_air: unsafe extern "C" fn(
+        unsafe extern "C" fn(*mut c_void, unsafe extern "C" fn(*mut c_void))
     ) -> u32,
     // out: 2 pointer array where [0] = *air*, [1] = *ground*
-    pub unit_base_strength: unsafe extern fn() -> Option<unsafe extern fn(*mut *mut u32)>,
+    pub unit_base_strength: unsafe extern "C" fn() -> Option<unsafe extern "C" fn(*mut *mut u32)>,
     pub read_map_file:
-        unsafe extern fn() -> Option<unsafe extern fn(*const u8, *mut usize) -> *mut u8>,
-    pub hook_func: unsafe extern fn(
+        unsafe extern "C" fn() -> Option<unsafe extern "C" fn(*const u8, *mut usize) -> *mut u8>,
+    pub hook_func: unsafe extern "C" fn(
         // Func ID (enum)
         u16,
         // Hook function: Takes arguments and then original function callback.
@@ -217,44 +217,44 @@ pub struct PluginApi {
         usize,
     ) -> u32,
     // Func ID -> func, will have to cast for expected calling convention
-    pub get_func: unsafe extern fn(u16) -> Option<unsafe extern fn()>,
+    pub get_func: unsafe extern "C" fn(u16) -> Option<unsafe extern "C" fn()>,
     // List of VarId, list of results, length of lists
     // Result enum: 0 = Var not found, 1 = Not supported (Old samase),
     //      2 = Read only, 3 = Read / write
-    pub load_vars: unsafe extern fn(*const u16, *mut u8, usize),
+    pub load_vars: unsafe extern "C" fn(*const u16, *mut u8, usize),
     // List of VarId, list of results, length of lists
-    pub read_vars: unsafe extern fn(*const u16, *mut usize, usize),
+    pub read_vars: unsafe extern "C" fn(*const u16, *mut usize, usize),
     // List of VarId, list of values, length of lists
-    pub write_vars: unsafe extern fn(*const u16, *const usize, usize),
+    pub write_vars: unsafe extern "C" fn(*const u16, *const usize, usize),
     // Main tab name, subtab name, draw fn, draw fn ctx
     // Return 0 if debug ui is disabled.
     pub debug_ui_add_tab:
-        unsafe extern fn(*const FfiStr, *const FfiStr, DebugUiDrawCb, *mut c_void) -> usize,
+        unsafe extern "C" fn(*const FfiStr, *const FfiStr, DebugUiDrawCb, *mut c_void) -> usize,
     // Return null if debug ui is disabled.
-    pub debug_ui_add_log: unsafe extern fn() -> *mut DebugUiLog,
+    pub debug_ui_add_log: unsafe extern "C" fn() -> *mut DebugUiLog,
     // Log, format, format params, format param count, extra (should be null)
     // Expected to be stored and used outside samase_plugin_init.
     // Does nothing if DebugUiLog is null, so caller doesn't have to null check if they
     // don't want to.
     // Format string must be valid until debug_log_clear call
-    pub debug_log_add_data: unsafe extern fn(
+    pub debug_log_add_data: unsafe extern "C" fn(
         *mut DebugUiLog, *const FfiStr, *const ComplexLineParam, usize, *mut c_void,
     ),
     // Expected to be stored and used outside samase_plugin_init.
-    pub debug_log_clear: unsafe extern fn(*mut DebugUiLog),
+    pub debug_log_clear: unsafe extern "C" fn(*mut DebugUiLog),
     // Allocates 4 bytes per unit of memory for later use between plugins.
     // Takes in field name string, returns id that is stable for the process lifetime,
     // but unstable between process launches. Repeated calls with same string return
     // same id.
     // Can be called outside plugin init function.
     // Returns 0 if not supported.
-    pub create_extended_unit_field: unsafe extern fn(*const FfiStr) -> u32,
+    pub create_extended_unit_field: unsafe extern "C" fn(*const FfiStr) -> u32,
     // unit index, field id -> value
     // Can be called outside plugin init function.
-    pub read_extended_unit_field: unsafe extern fn(u32, u32) -> u32,
+    pub read_extended_unit_field: unsafe extern "C" fn(u32, u32) -> u32,
     // unit index, field id, new value -> old value
     // Can be called outside plugin init function.
-    pub write_extended_unit_field: unsafe extern fn(u32, u32, u32) -> u32,
+    pub write_extended_unit_field: unsafe extern "C" fn(u32, u32, u32) -> u32,
 }
 
 // Extern struct.
@@ -291,32 +291,32 @@ pub enum ComplexLineParamType {
 #[repr(transparent)]
 pub struct DebugUiColor(pub u32);
 
-pub type DebugUiDrawCb = unsafe extern fn(*const DebugUiDraw, *mut c_void);
+pub type DebugUiDrawCb = unsafe extern "C" fn(*const DebugUiDraw, *mut c_void);
 
 #[repr(C)]
 pub struct DebugUiDraw {
     pub struct_size: usize,
     // Text, return was_clicked
-    pub button: unsafe extern fn(*const FfiStr, DebugUiColor) -> u8,
+    pub button: unsafe extern "C" fn(*const FfiStr, DebugUiColor) -> u8,
     // Text, state_opt, return state
     // If state_opt is not given uses a variable based on text + tab names.
-    pub checkbox: unsafe extern fn(*const FfiStr, *mut u8) -> u8,
+    pub checkbox: unsafe extern "C" fn(*const FfiStr, *mut u8) -> u8,
     // Label_opt, state_in, state_out
-    pub text_entry: unsafe extern fn(*const FfiStr, *const FfiStr, *mut FfiStr),
+    pub text_entry: unsafe extern "C" fn(*const FfiStr, *const FfiStr, *mut FfiStr),
     // Text, color
-    pub label: unsafe extern fn(*const FfiStr, DebugUiColor),
+    pub label: unsafe extern "C" fn(*const FfiStr, DebugUiColor),
     // Text, color, index, state
     // Writes *state = index when clicked.
-    pub clickable_label: unsafe extern fn(*const FfiStr, DebugUiColor, u32, *mut u32),
+    pub clickable_label: unsafe extern "C" fn(*const FfiStr, DebugUiColor, u32, *mut u32),
     // Text, params, param_count
     // "[]" in text gets replaced by params. No fancier formatting specifiers.
-    pub complex_line: unsafe extern fn(*const FfiStr, *const ComplexLineParam, usize),
+    pub complex_line: unsafe extern "C" fn(*const FfiStr, *const ComplexLineParam, usize),
     // Height, callback, callback_pram
-    pub scroll_area: unsafe extern fn(u32, DebugUiDrawCb, *mut c_void),
+    pub scroll_area: unsafe extern "C" fn(u32, DebugUiDrawCb, *mut c_void),
     // Name, id_source_opt, callback, callback_param
-    pub collapsing: unsafe extern fn(*const FfiStr, *const FfiStr, DebugUiDrawCb, *mut c_void),
-    pub separator: unsafe extern fn(),
-    pub debug_log: unsafe extern fn(*mut DebugUiLog),
+    pub collapsing: unsafe extern "C" fn(*const FfiStr, *const FfiStr, DebugUiDrawCb, *mut c_void),
+    pub separator: unsafe extern "C" fn(),
+    pub debug_log: unsafe extern "C" fn(*mut DebugUiLog),
 }
 
 #[derive(Copy, Clone)]

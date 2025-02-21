@@ -7,8 +7,8 @@ use parking_lot::{Mutex, MutexGuard, const_mutex};
 use quick_error::quick_error;
 use thread_local::ThreadLocal;
 
-pub type SaveHook = Option<unsafe extern fn(unsafe extern fn(*const u8, usize))>;
-pub type LoadHook = Option<unsafe extern fn(*const u8, usize) -> u32>;
+pub type SaveHook = Option<unsafe extern "C" fn(unsafe extern "C" fn(*const u8, usize))>;
+pub type LoadHook = Option<unsafe extern "C" fn(*const u8, usize) -> u32>;
 
 const SAVE_MAGIC: u32 = 0x53736d53;
 const SAVE_VERSION: u32 = 0;
@@ -37,14 +37,14 @@ struct Hook {
     tag: String,
     save: SaveHook,
     load: LoadHook,
-    init: unsafe extern fn(),
+    init: unsafe extern "C" fn(),
 }
 
 fn save_hooks() -> MutexGuard<'static, Vec<Hook>> {
     SAVE_HOOKS.lock()
 }
 
-pub fn add_hook(tag: String, save: SaveHook, load: LoadHook, init: unsafe extern fn()) {
+pub fn add_hook(tag: String, save: SaveHook, load: LoadHook, init: unsafe extern "C" fn()) {
     save_hooks().push(Hook {
         tag,
         save,
@@ -319,7 +319,7 @@ struct SerializedChunk {
 }
 
 pub fn call_save_hooks<T: File>(mut file: T) -> Result<(), Error> {
-    unsafe extern fn add_save_data(data: *const u8, len: usize) {
+    unsafe extern "C" fn add_save_data(data: *const u8, len: usize) {
         let slice = std::slice::from_raw_parts(data, len);
         let mut current_hook = CURRENT_HOOK.get().unwrap().borrow_mut();
         current_hook.extend_from_slice(slice);

@@ -27,7 +27,7 @@ mod windows;
 pub use samase_plugin::{PluginApi, FuncId, VarId};
 
 static PATCHER: Mutex<whack::Patcher> = const_mutex(whack::Patcher::new());
-static FIRST_FILE_ACCESS_HOOKS: Mutex<Vec<unsafe extern fn()>> = const_mutex(Vec::new());
+static FIRST_FILE_ACCESS_HOOKS: Mutex<Vec<unsafe extern "C" fn()>> = const_mutex(Vec::new());
 static FILE_READ_HOOKS: RwLock<Vec<FileReadHook>> = const_rwlock(Vec::new());
 static OPEN_HOOKED_FILES: Mutex<Vec<HeapFreeOnDropPtr>> = const_mutex(Vec::new());
 
@@ -37,25 +37,25 @@ static LAST_FILE_POINTER: Lazy<ThreadLocal<Cell<u64>>> = Lazy::new(|| ThreadLoca
 
 static HAS_HOOKED_FILES_OPEN: AtomicBool = AtomicBool::new(false);
 
-type Hook1Arg = unsafe extern fn(usize, unsafe extern fn(usize) -> usize) -> usize;
-type Hook2Arg = unsafe extern fn(usize, usize, unsafe extern fn(usize, usize) -> usize) -> usize;
-type Hook3Arg = unsafe extern fn(usize, usize, usize,
-    unsafe extern fn(usize, usize, usize) -> usize) -> usize;
-type Hook4Arg = unsafe extern fn(usize, usize, usize, usize,
-    unsafe extern fn(usize, usize, usize, usize) -> usize) -> usize;
-type Hook5Arg = unsafe extern fn(usize, usize, usize, usize, usize,
-    unsafe extern fn(usize, usize, usize, usize, usize) -> usize) -> usize;
-type Hook6Arg = unsafe extern fn(usize, usize, usize, usize, usize, usize,
-    unsafe extern fn(usize, usize, usize, usize, usize, usize) -> usize) -> usize;
-type Hook7Arg = unsafe extern fn(usize, usize, usize, usize, usize, usize, usize,
-    unsafe extern fn(usize, usize, usize, usize, usize, usize, usize) -> usize) -> usize;
-type Hook9Arg = unsafe extern fn(usize, usize, usize, usize, usize, usize, usize, usize, usize,
-    unsafe extern fn(usize, usize, usize, usize, usize, usize, usize, usize, usize) -> usize,
+type Hook1Arg = unsafe extern "C" fn(usize, unsafe extern "C" fn(usize) -> usize) -> usize;
+type Hook2Arg = unsafe extern "C" fn(usize, usize, unsafe extern "C" fn(usize, usize) -> usize) -> usize;
+type Hook3Arg = unsafe extern "C" fn(usize, usize, usize,
+    unsafe extern "C" fn(usize, usize, usize) -> usize) -> usize;
+type Hook4Arg = unsafe extern "C" fn(usize, usize, usize, usize,
+    unsafe extern "C" fn(usize, usize, usize, usize) -> usize) -> usize;
+type Hook5Arg = unsafe extern "C" fn(usize, usize, usize, usize, usize,
+    unsafe extern "C" fn(usize, usize, usize, usize, usize) -> usize) -> usize;
+type Hook6Arg = unsafe extern "C" fn(usize, usize, usize, usize, usize, usize,
+    unsafe extern "C" fn(usize, usize, usize, usize, usize, usize) -> usize) -> usize;
+type Hook7Arg = unsafe extern "C" fn(usize, usize, usize, usize, usize, usize, usize,
+    unsafe extern "C" fn(usize, usize, usize, usize, usize, usize, usize) -> usize) -> usize;
+type Hook9Arg = unsafe extern "C" fn(usize, usize, usize, usize, usize, usize, usize, usize, usize,
+    unsafe extern "C" fn(usize, usize, usize, usize, usize, usize, usize, usize, usize) -> usize,
     ) -> usize;
 
 struct FileReadHook {
     prefix: Vec<u8>,
-    hook: unsafe extern fn(*const u8, *mut u32) -> *mut u8,
+    hook: unsafe extern "C" fn(*const u8, *mut u32) -> *mut u8,
     being_called: ThreadLocal<Cell<bool>>,
 }
 
@@ -92,46 +92,46 @@ pub struct Context {
 struct InternalContext {
     replace_patches: Vec<(usize, Vec<u8>)>,
     unsupported_features: Vec<String>,
-    step_objects: Vec<(unsafe extern fn(), u32)>,
-    step_order: Vec<unsafe extern fn(*mut c_void, unsafe extern fn(*mut c_void))>,
-    step_order_hidden: Vec<unsafe extern fn(*mut c_void, unsafe extern fn(*mut c_void))>,
+    step_objects: Vec<(unsafe extern "C" fn(), u32)>,
+    step_order: Vec<unsafe extern "C" fn(*mut c_void, unsafe extern "C" fn(*mut c_void))>,
+    step_order_hidden: Vec<unsafe extern "C" fn(*mut c_void, unsafe extern "C" fn(*mut c_void))>,
     process_commands: Vec<
-        unsafe extern fn(*const c_void, u32, u32, unsafe extern fn(*const c_void, u32, u32))
+        unsafe extern "C" fn(*const c_void, u32, u32, unsafe extern "C" fn(*const c_void, u32, u32))
     >,
     process_lobby_commands: Vec<
-        unsafe extern fn(*const c_void, u32, u32, unsafe extern fn(*const c_void, u32, u32))
+        unsafe extern "C" fn(*const c_void, u32, u32, unsafe extern "C" fn(*const c_void, u32, u32))
     >,
-    send_command: Vec<unsafe extern fn(*mut c_void, u32, unsafe extern fn(*mut c_void, u32))>,
-    step_secondary_order: Vec<unsafe extern fn(*mut c_void, unsafe extern fn(*mut c_void))>,
-    game_screen_rclick: Vec<unsafe extern fn(*mut c_void, unsafe extern fn(*mut c_void))>,
-    draw_image: Vec<unsafe extern fn(*mut c_void, unsafe extern fn(*mut c_void))>,
-    run_dialog: Vec<unsafe extern fn(
+    send_command: Vec<unsafe extern "C" fn(*mut c_void, u32, unsafe extern "C" fn(*mut c_void, u32))>,
+    step_secondary_order: Vec<unsafe extern "C" fn(*mut c_void, unsafe extern "C" fn(*mut c_void))>,
+    game_screen_rclick: Vec<unsafe extern "C" fn(*mut c_void, unsafe extern "C" fn(*mut c_void))>,
+    draw_image: Vec<unsafe extern "C" fn(*mut c_void, unsafe extern "C" fn(*mut c_void))>,
+    run_dialog: Vec<unsafe extern "C" fn(
         *mut c_void,
         usize,
         *mut c_void,
-        unsafe extern fn(*mut c_void, usize, *mut c_void) -> u32,
+        unsafe extern "C" fn(*mut c_void, usize, *mut c_void) -> u32,
     ) -> u32>,
-    spawn_dialog: Vec<unsafe extern fn(
+    spawn_dialog: Vec<unsafe extern "C" fn(
         *mut c_void,
         usize,
         *mut c_void,
-        unsafe extern fn(*mut c_void, usize, *mut c_void) -> u32,
+        unsafe extern "C" fn(*mut c_void, usize, *mut c_void) -> u32,
     ) -> u32>,
-    create_bullet: Vec<unsafe extern fn(
+    create_bullet: Vec<unsafe extern "C" fn(
         u32, i32, i32, u32, u32, *mut c_void,
-        unsafe extern fn(u32, i32, i32, u32, u32, *mut c_void) -> *mut c_void,
+        unsafe extern "C" fn(u32, i32, i32, u32, u32, *mut c_void) -> *mut c_void,
     ) -> *mut c_void>,
-    create_unit: Vec<unsafe extern fn(
+    create_unit: Vec<unsafe extern "C" fn(
         u32, i32, i32, u32, *const u8,
-        unsafe extern fn(u32, i32, i32, u32, *const u8) -> *mut c_void,
+        unsafe extern "C" fn(u32, i32, i32, u32, *const u8) -> *mut c_void,
     ) -> *mut c_void>,
-    init_units: Vec<unsafe extern fn(unsafe extern fn())>,
-    aiscript_hooks: Vec<(u8, unsafe extern fn(*mut c_void))>,
+    init_units: Vec<unsafe extern "C" fn(unsafe extern "C" fn())>,
+    aiscript_hooks: Vec<(u8, unsafe extern "C" fn(*mut c_void))>,
     iscript_hooks: Vec<
-        (u8, unsafe extern fn(*mut c_void, *mut c_void, *mut c_void, u32, *mut u32))
+        (u8, unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void, u32, *mut u32))
     >,
-    ai_focus_disabled: Vec<unsafe extern fn(*mut c_void, unsafe extern fn(*mut c_void))>,
-    ai_focus_air: Vec<unsafe extern fn(*mut c_void, unsafe extern fn(*mut c_void))>,
+    ai_focus_disabled: Vec<unsafe extern "C" fn(*mut c_void, unsafe extern "C" fn(*mut c_void))>,
+    ai_focus_air: Vec<unsafe extern "C" fn(*mut c_void, unsafe extern "C" fn(*mut c_void))>,
     func_hooks: Vec<(FuncId, usize)>,
     save_extensions_used: bool,
 }
@@ -266,10 +266,10 @@ impl Drop for Context {
                 exe.hook_closure(bw::StepOrder, move |unit, orig| {
                     // Sketchy, whack should just give fnptrs as the fn traits it currently gives
                     // are stateless anyways.
-                    static ORIG: FnTraitGlobal<unsafe extern fn(*mut c_void)> =
+                    static ORIG: FnTraitGlobal<unsafe extern "C" fn(*mut c_void)> =
                         FnTraitGlobal::new();
                     ORIG.set(orig);
-                    unsafe extern fn call_orig(unit: *mut c_void) {
+                    unsafe extern "C" fn call_orig(unit: *mut c_void) {
                         let orig = ORIG.get();
                         orig(unit);
                     }
@@ -278,10 +278,10 @@ impl Drop for Context {
             }
             for hook in ctx.step_order_hidden {
                 exe.hook_closure(bw::StepOrder_Hidden, move |unit, orig| {
-                    static ORIG: FnTraitGlobal<unsafe extern fn(*mut c_void)> =
+                    static ORIG: FnTraitGlobal<unsafe extern "C" fn(*mut c_void)> =
                         FnTraitGlobal::new();
                     ORIG.set(orig);
-                    unsafe extern fn call_orig(unit: *mut c_void) {
+                    unsafe extern "C" fn call_orig(unit: *mut c_void) {
                         let orig = ORIG.get();
                         orig(unit);
                     }
@@ -290,10 +290,10 @@ impl Drop for Context {
             }
             for hook in ctx.step_secondary_order {
                 exe.hook_closure(bw::StepSecondaryOrder, move |unit, orig| {
-                    static ORIG: FnTraitGlobal<unsafe extern fn(*mut c_void)> =
+                    static ORIG: FnTraitGlobal<unsafe extern "C" fn(*mut c_void)> =
                         FnTraitGlobal::new();
                     ORIG.set(orig);
-                    unsafe extern fn call_orig(unit: *mut c_void) {
+                    unsafe extern "C" fn call_orig(unit: *mut c_void) {
                         let orig = ORIG.get();
                         orig(unit);
                     }
@@ -302,10 +302,10 @@ impl Drop for Context {
             }
             for hook in ctx.send_command {
                 exe.hook_closure(bw::SendCommand, move |data, len, orig| {
-                    static ORIG: FnTraitGlobal<unsafe extern fn(*mut c_void, u32)> =
+                    static ORIG: FnTraitGlobal<unsafe extern "C" fn(*mut c_void, u32)> =
                         FnTraitGlobal::new();
                     ORIG.set(orig);
-                    unsafe extern fn call_orig(data: *mut c_void, len: u32) {
+                    unsafe extern "C" fn call_orig(data: *mut c_void, len: u32) {
                         let orig = ORIG.get();
                         orig(data, len);
                     }
@@ -317,10 +317,10 @@ impl Drop for Context {
                     bw::ProcessCommands,
                     move |data, len, replay, orig| {
                         static ORIG:
-                            FnTraitGlobal<unsafe extern fn(*const c_void, u32, u32)> =
+                            FnTraitGlobal<unsafe extern "C" fn(*const c_void, u32, u32)> =
                             FnTraitGlobal::new();
                         ORIG.set(orig);
-                        unsafe extern fn call_orig(data: *const c_void, len: u32, replay: u32) {
+                        unsafe extern "C" fn call_orig(data: *const c_void, len: u32, replay: u32) {
                             let orig = ORIG.get();
                             orig(data, len, replay);
                         }
@@ -333,10 +333,10 @@ impl Drop for Context {
                     bw::ProcessLobbyCommands,
                     move |data, len, replay, orig| {
                         static ORIG:
-                            FnTraitGlobal<unsafe extern fn(*const c_void, u32, u32)> =
+                            FnTraitGlobal<unsafe extern "C" fn(*const c_void, u32, u32)> =
                             FnTraitGlobal::new();
                         ORIG.set(orig);
-                        unsafe extern fn call_orig(data: *const c_void, len: u32, replay: u32) {
+                        unsafe extern "C" fn call_orig(data: *const c_void, len: u32, replay: u32) {
                             let orig = ORIG.get();
                             orig(data, len, replay);
                         }
@@ -346,10 +346,10 @@ impl Drop for Context {
             }
             for hook in ctx.game_screen_rclick {
                 exe.hook_closure(bw::GameScreenRClick, move |event, orig| {
-                    static ORIG: FnTraitGlobal<unsafe extern fn(*mut c_void)> =
+                    static ORIG: FnTraitGlobal<unsafe extern "C" fn(*mut c_void)> =
                         FnTraitGlobal::new();
                     ORIG.set(orig);
-                    unsafe extern fn call_orig(event: *mut c_void) {
+                    unsafe extern "C" fn call_orig(event: *mut c_void) {
                         let orig = ORIG.get();
                         orig(event);
                     }
@@ -358,10 +358,10 @@ impl Drop for Context {
             }
             for hook in ctx.draw_image {
                 exe.hook_closure(bw::DrawImage, move |image, orig| {
-                    static ORIG: FnTraitGlobal<unsafe extern fn(*mut bw::Image)> =
+                    static ORIG: FnTraitGlobal<unsafe extern "C" fn(*mut bw::Image)> =
                         FnTraitGlobal::new();
                     ORIG.set(orig);
-                    unsafe extern fn call_orig(image: *mut c_void) {
+                    unsafe extern "C" fn call_orig(image: *mut c_void) {
                         let orig = ORIG.get();
                         orig(image as *mut bw::Image)
                     }
@@ -373,10 +373,10 @@ impl Drop for Context {
                     bw::RunDialog,
                     move |dialog, event_handler, orig| {
                         static ORIG:
-                            FnTraitGlobal<unsafe extern fn(*mut c_void, *mut c_void) -> u32> =
+                            FnTraitGlobal<unsafe extern "C" fn(*mut c_void, *mut c_void) -> u32> =
                             FnTraitGlobal::new();
                         ORIG.set(mem::transmute(orig));
-                        unsafe extern fn call_orig(
+                        unsafe extern "C" fn call_orig(
                             dialog: *mut c_void,
                             _unused: usize,
                             event_handler: *mut c_void,
@@ -393,10 +393,10 @@ impl Drop for Context {
                     bw::SpawnDialog,
                     move |dialog, event_handler, orig| {
                         static ORIG:
-                            FnTraitGlobal<unsafe extern fn(*mut c_void, *mut c_void) -> u32> =
+                            FnTraitGlobal<unsafe extern "C" fn(*mut c_void, *mut c_void) -> u32> =
                             FnTraitGlobal::new();
                         ORIG.set(mem::transmute(orig));
-                        unsafe extern fn call_orig(
+                        unsafe extern "C" fn call_orig(
                             dialog: *mut c_void,
                             _unused: usize,
                             event_handler: *mut c_void,
@@ -413,10 +413,10 @@ impl Drop for Context {
                     bw::CreateBullet,
                     move |id, x, y, player, direction, parent, orig| {
                         static ORIG: FnTraitGlobal<
-                                unsafe extern fn(u32, i32, i32, u32, u32, *mut c_void) -> *mut c_void
+                                unsafe extern "C" fn(u32, i32, i32, u32, u32, *mut c_void) -> *mut c_void
                             > = FnTraitGlobal::new();
                         ORIG.set(mem::transmute(orig));
-                        unsafe extern fn call_orig(
+                        unsafe extern "C" fn call_orig(
                             id: u32,
                             x: i32,
                             y: i32,
@@ -436,10 +436,10 @@ impl Drop for Context {
                     bw::CreateUnit,
                     move |id, x, y, player, orig| {
                         static ORIG: FnTraitGlobal<
-                                unsafe extern fn(u32, i32, i32, u32) -> *mut c_void
+                                unsafe extern "C" fn(u32, i32, i32, u32) -> *mut c_void
                             > = FnTraitGlobal::new();
                         ORIG.set(mem::transmute(orig));
-                        unsafe extern fn call_orig(
+                        unsafe extern "C" fn call_orig(
                             id: u32,
                             x: i32,
                             y: i32,
@@ -875,7 +875,7 @@ impl Drop for Context {
                 filename: *const u8,
                 flags: u32,
                 out: *mut *mut c_void,
-                orig: unsafe extern fn(*mut c_void, *const u8, u32, *mut *mut c_void) -> u32,
+                orig: unsafe extern "C" fn(*mut c_void, *const u8, u32, *mut *mut c_void) -> u32,
             ) -> u32 {
                 let hooks = FILE_READ_HOOKS.read();
                 let mut result = None;
@@ -920,7 +920,7 @@ impl Drop for Context {
             unsafe fn size_hook(
                 file: *mut c_void,
                 out_high: *mut u32,
-                orig: unsafe extern fn(*mut c_void, *mut u32) -> u32,
+                orig: unsafe extern "C" fn(*mut c_void, *mut u32) -> u32,
             ) -> u32 {
                 if HAS_HOOKED_FILES_OPEN.load(Ordering::Relaxed) {
                     let files = OPEN_HOOKED_FILES.lock();
@@ -942,7 +942,7 @@ impl Drop for Context {
                 len: u32,
                 out_len: *mut u32,
                 overlapped: *mut c_void,
-                orig: unsafe extern fn(*mut c_void, *mut u8, u32, *mut u32, *mut c_void) -> u32,
+                orig: unsafe extern "C" fn(*mut c_void, *mut u8, u32, *mut u32, *mut c_void) -> u32,
             ) -> u32 {
                 if HAS_HOOKED_FILES_OPEN.load(Ordering::Relaxed) {
                     let files = OPEN_HOOKED_FILES.lock();
@@ -961,7 +961,7 @@ impl Drop for Context {
 
             unsafe fn close_hook(
                 file: *mut c_void,
-                orig: unsafe extern fn(*mut c_void),
+                orig: unsafe extern "C" fn(*mut c_void),
             ) {
                 if HAS_HOOKED_FILES_OPEN.load(Ordering::Relaxed) {
                     let mut files = OPEN_HOOKED_FILES.lock();
@@ -1123,7 +1123,7 @@ pub fn init_1161() -> Context {
             bw::init_funcs_storm(&mut storm);
         }
         {
-            unsafe fn init_mpqs_only_once(orig: unsafe extern fn()) {
+            unsafe fn init_mpqs_only_once(orig: unsafe extern "C" fn()) {
                 static ONCE: Once = Once::new();
                 ONCE.call_once(|| orig());
             }
@@ -1142,17 +1142,17 @@ pub fn init_1161() -> Context {
     }
 }
 
-unsafe extern fn free_memory(mem: *mut u8) {
+unsafe extern "C" fn free_memory(mem: *mut u8) {
     HeapFree(GetProcessHeap(), 0, mem as *mut _);
 }
 
-unsafe extern fn write_exe_memory(addr: usize, data: *const u8, len: usize) -> u32 {
+unsafe extern "C" fn write_exe_memory(addr: usize, data: *const u8, len: usize) -> u32 {
     let slice = slice::from_raw_parts(data, len);
     context().replace_patches.push((addr, slice.into()));
     1
 }
 
-unsafe extern fn warn_unsupported_feature(feature: *const u8) {
+unsafe extern "C" fn warn_unsupported_feature(feature: *const u8) {
     context().unsupported_features.push(
         CStr::from_ptr(feature as *const i8).to_string_lossy().into()
     );
@@ -1168,8 +1168,8 @@ impl Drop for SFileHandle {
     }
 }
 
-unsafe extern fn read_file() -> unsafe extern fn(*const u8, *mut usize) -> *mut u8 {
-    unsafe extern fn actual(path: *const u8, size: *mut usize) -> *mut u8 {
+unsafe extern "C" fn read_file() -> unsafe extern "C" fn(*const u8, *mut usize) -> *mut u8 {
+    unsafe extern "C" fn actual(path: *const u8, size: *mut usize) -> *mut u8 {
         let len = (0..).find(|&x| *path.offset(x) == 0).unwrap() as usize;
         let mut filename = vec![0; len + 1];
         for i in 0..len {
@@ -1202,26 +1202,26 @@ unsafe extern fn read_file() -> unsafe extern fn(*const u8, *mut usize) -> *mut 
     actual
 }
 
-unsafe extern fn game() -> Option<unsafe extern fn() -> *mut c_void> {
-    unsafe extern fn actual() -> *mut c_void {
+unsafe extern "C" fn game() -> Option<unsafe extern "C" fn() -> *mut c_void> {
+    unsafe extern "C" fn actual() -> *mut c_void {
         &mut *bw::game as *mut bw::Game as *mut c_void
     }
     Some(actual)
 }
 
-unsafe extern fn rng_seed() -> Option<unsafe extern fn() -> u32> {
-    unsafe extern fn actual() -> u32 {
+unsafe extern "C" fn rng_seed() -> Option<unsafe extern "C" fn() -> u32> {
+    unsafe extern "C" fn actual() -> u32 {
         *bw::rng_seed
     }
     Some(actual)
 }
 
-unsafe extern fn hook_step_objects(hook: unsafe extern fn(), after: u32) -> u32 {
+unsafe extern "C" fn hook_step_objects(hook: unsafe extern "C" fn(), after: u32) -> u32 {
     context().step_objects.push((hook, after));
     1
 }
 
-unsafe extern fn hook_aiscript_opcode(opcode: u32, hook: unsafe extern fn(*mut c_void)) -> u32 {
+unsafe extern "C" fn hook_aiscript_opcode(opcode: u32, hook: unsafe extern "C" fn(*mut c_void)) -> u32 {
     if opcode < 0x100 {
         context().aiscript_hooks.push((opcode as u8, hook));
         1
@@ -1230,57 +1230,57 @@ unsafe extern fn hook_aiscript_opcode(opcode: u32, hook: unsafe extern fn(*mut c
     }
 }
 
-unsafe extern fn ai_regions() -> Option<unsafe extern fn() -> *mut c_void> {
-    unsafe extern fn actual() -> *mut c_void {
+unsafe extern "C" fn ai_regions() -> Option<unsafe extern "C" fn() -> *mut c_void> {
+    unsafe extern "C" fn actual() -> *mut c_void {
         &mut bw::ai_regions[0] as *mut *mut bw::AiRegion as *mut c_void
     }
     Some(actual)
 }
 
-unsafe extern fn player_ai() -> Option<unsafe extern fn() -> *mut c_void> {
-    unsafe extern fn actual() -> *mut c_void {
+unsafe extern "C" fn player_ai() -> Option<unsafe extern "C" fn() -> *mut c_void> {
+    unsafe extern "C" fn actual() -> *mut c_void {
         &mut bw::player_ai[0] as *mut bw::PlayerAi as *mut c_void
     }
     Some(actual)
 }
 
-unsafe extern fn get_region() -> Option<unsafe extern fn(u32, u32) -> u32> {
-    unsafe extern fn actual(x: u32, y: u32) -> u32 {
+unsafe extern "C" fn get_region() -> Option<unsafe extern "C" fn(u32, u32) -> u32> {
+    unsafe extern "C" fn actual(x: u32, y: u32) -> u32 {
         bw::get_region(x, y)
     }
     Some(actual)
 }
 
-unsafe extern fn change_ai_region_state() -> Option<unsafe extern fn(*mut c_void, u32)> {
-    unsafe extern fn actual(region: *mut c_void, state: u32) {
+unsafe extern "C" fn change_ai_region_state() -> Option<unsafe extern "C" fn(*mut c_void, u32)> {
+    unsafe extern "C" fn actual(region: *mut c_void, state: u32) {
         bw::change_ai_region_state(region, state)
     }
     Some(actual)
 }
 
-unsafe extern fn first_active_unit() -> Option<unsafe extern fn() -> *mut c_void> {
-    unsafe extern fn actual() -> *mut c_void {
+unsafe extern "C" fn first_active_unit() -> Option<unsafe extern "C" fn() -> *mut c_void> {
+    unsafe extern "C" fn actual() -> *mut c_void {
         *bw::first_active_unit as *mut c_void
     }
     Some(actual)
 }
 
-unsafe extern fn first_hidden_unit() -> Option<unsafe extern fn() -> *mut c_void> {
-    unsafe extern fn actual() -> *mut c_void {
+unsafe extern "C" fn first_hidden_unit() -> Option<unsafe extern "C" fn() -> *mut c_void> {
+    unsafe extern "C" fn actual() -> *mut c_void {
         *bw::first_hidden_unit as *mut c_void
     }
     Some(actual)
 }
 
-unsafe extern fn units() -> Option<unsafe extern fn() -> *mut c_void> {
-    unsafe extern fn actual() -> *mut c_void {
+unsafe extern "C" fn units() -> Option<unsafe extern "C" fn() -> *mut c_void> {
+    unsafe extern "C" fn actual() -> *mut c_void {
         &mut bw::units[0] as *mut bw::Unit as *mut c_void
     }
     Some(actual)
 }
 
-unsafe extern fn unit_array_len() -> Option<unsafe extern fn(*mut *mut c_void, *mut usize)> {
-    unsafe extern fn actual(out: *mut *mut c_void, len: *mut usize) {
+unsafe extern "C" fn unit_array_len() -> Option<unsafe extern "C" fn(*mut *mut c_void, *mut usize)> {
+    unsafe extern "C" fn actual(out: *mut *mut c_void, len: *mut usize) {
         let first = &mut bw::units[0] as *mut bw::Unit as *mut c_void;
         *out = first;
         *len = 1700;
@@ -1288,95 +1288,95 @@ unsafe extern fn unit_array_len() -> Option<unsafe extern fn(*mut *mut c_void, *
     Some(actual)
 }
 
-unsafe extern fn selections() -> Option<unsafe extern fn() -> *mut c_void> {
-    unsafe extern fn actual() -> *mut c_void {
+unsafe extern "C" fn selections() -> Option<unsafe extern "C" fn() -> *mut c_void> {
+    unsafe extern "C" fn actual() -> *mut c_void {
         &mut bw::selections[0] as *mut *mut bw::Unit as *mut c_void
     }
     Some(actual)
 }
 
-unsafe extern fn client_selection() -> Option<unsafe extern fn() -> *mut c_void> {
-    unsafe extern fn actual() -> *mut c_void {
+unsafe extern "C" fn client_selection() -> Option<unsafe extern "C" fn() -> *mut c_void> {
+    unsafe extern "C" fn actual() -> *mut c_void {
         &mut bw::client_selection[0] as *mut *mut bw::Unit as *mut c_void
     }
     Some(actual)
 }
 
-unsafe extern fn first_ai_script() -> Option<unsafe extern fn() -> *mut c_void> {
-    unsafe extern fn actual() -> *mut c_void {
+unsafe extern "C" fn first_ai_script() -> Option<unsafe extern "C" fn() -> *mut c_void> {
+    unsafe extern "C" fn actual() -> *mut c_void {
         *bw::first_ai_script
     }
     Some(actual)
 }
 
-unsafe extern fn set_first_ai_script() -> Option<unsafe extern fn(*mut c_void)> {
-    unsafe extern fn actual(value: *mut c_void) {
+unsafe extern "C" fn set_first_ai_script() -> Option<unsafe extern "C" fn(*mut c_void)> {
+    unsafe extern "C" fn actual(value: *mut c_void) {
         *bw::first_ai_script = value
     }
     Some(actual)
 }
 
-unsafe extern fn first_free_ai_script() -> Option<unsafe extern fn() -> *mut c_void> {
-    unsafe extern fn actual() -> *mut c_void {
+unsafe extern "C" fn first_free_ai_script() -> Option<unsafe extern "C" fn() -> *mut c_void> {
+    unsafe extern "C" fn actual() -> *mut c_void {
         *bw::first_free_ai_script
     }
     Some(actual)
 }
 
-unsafe extern fn set_first_free_ai_script() -> Option<unsafe extern fn(*mut c_void)> {
-    unsafe extern fn actual(value: *mut c_void) {
+unsafe extern "C" fn set_first_free_ai_script() -> Option<unsafe extern "C" fn(*mut c_void)> {
+    unsafe extern "C" fn actual(value: *mut c_void) {
         *bw::first_free_ai_script = value
     }
     Some(actual)
 }
 
-unsafe extern fn player_ai_towns() -> Option<unsafe extern fn() -> *mut c_void> {
-    unsafe extern fn actual() -> *mut c_void {
+unsafe extern "C" fn player_ai_towns() -> Option<unsafe extern "C" fn() -> *mut c_void> {
+    unsafe extern "C" fn actual() -> *mut c_void {
         &mut bw::active_ai_towns[0] as *mut bw::AiTownList as *mut c_void
     }
     Some(actual)
 }
 
-unsafe extern fn first_guard_ai() -> Option<unsafe extern fn() -> *mut c_void> {
-    unsafe extern fn actual() -> *mut c_void {
+unsafe extern "C" fn first_guard_ai() -> Option<unsafe extern "C" fn() -> *mut c_void> {
+    unsafe extern "C" fn actual() -> *mut c_void {
         bw::guard_ais.ptr() as *mut c_void
     }
     Some(actual)
 }
 
-unsafe extern fn pathing() -> Option<unsafe extern fn() -> *mut c_void> {
-    unsafe extern fn actual() -> *mut c_void {
+unsafe extern "C" fn pathing() -> Option<unsafe extern "C" fn() -> *mut c_void> {
+    unsafe extern "C" fn actual() -> *mut c_void {
         *bw::pathing
     }
     Some(actual)
 }
 
-unsafe extern fn map_tile_flags() -> Option<unsafe extern fn() -> *mut u32> {
-    unsafe extern fn actual() -> *mut u32 {
+unsafe extern "C" fn map_tile_flags() -> Option<unsafe extern "C" fn() -> *mut u32> {
+    unsafe extern "C" fn actual() -> *mut u32 {
         *bw::map_tile_flags
     }
     Some(actual)
 }
 
-unsafe extern fn players() -> Option<unsafe extern fn() -> *mut c_void> {
-    unsafe extern fn actual() -> *mut c_void {
+unsafe extern "C" fn players() -> Option<unsafe extern "C" fn() -> *mut c_void> {
+    unsafe extern "C" fn actual() -> *mut c_void {
         &mut bw::players[0] as *mut bw::Player as *mut c_void
     }
     Some(actual)
 }
 
-unsafe extern fn draw_cursor_marker() -> Option<unsafe extern fn(u32)> {
-    unsafe extern fn actual(val: u32) {
+unsafe extern "C" fn draw_cursor_marker() -> Option<unsafe extern "C" fn(u32)> {
+    unsafe extern "C" fn actual(val: u32) {
         *bw::draw_cursor_marker = val as u8;
     }
     Some(actual)
 }
 
     // self, order, x, y, target, fow_unit
-unsafe extern fn issue_order() ->
-    Option<unsafe extern fn(*mut c_void, u32, u32, u32, *mut c_void, u32)>
+unsafe extern "C" fn issue_order() ->
+    Option<unsafe extern "C" fn(*mut c_void, u32, u32, u32, *mut c_void, u32)>
 {
-    unsafe extern fn actual(
+    unsafe extern "C" fn actual(
         unit: *mut c_void,
         order: u32,
         x: u32,
@@ -1393,49 +1393,49 @@ unsafe extern fn issue_order() ->
     Some(actual)
 }
 
-unsafe extern fn print_text() -> Option<unsafe extern fn(*const u8)> {
-    unsafe extern fn actual(text: *const u8) {
+unsafe extern "C" fn print_text() -> Option<unsafe extern "C" fn(*const u8)> {
+    unsafe extern "C" fn actual(text: *const u8) {
         bw::print_text(text, 8, 0);
     }
     Some(actual)
 }
 
-unsafe extern fn send_command() -> Option<unsafe extern fn(*const c_void, u32)> {
-    unsafe extern fn actual(data: *const c_void, len: u32) {
+unsafe extern "C" fn send_command() -> Option<unsafe extern "C" fn(*const c_void, u32)> {
+    unsafe extern "C" fn actual(data: *const c_void, len: u32) {
         bw::send_command(data, len);
     }
     Some(actual)
 }
 
-unsafe extern fn ai_update_attack_target() ->
-    Option<unsafe extern fn(*mut c_void, u32, u32, u32) -> u32>
+unsafe extern "C" fn ai_update_attack_target() ->
+    Option<unsafe extern "C" fn(*mut c_void, u32, u32, u32) -> u32>
 {
-    unsafe extern fn actual(unit: *mut c_void, a1: u32, a2: u32, a3: u32) -> u32 {
+    unsafe extern "C" fn actual(unit: *mut c_void, a1: u32, a2: u32, a3: u32) -> u32 {
         bw::ai_update_attack_target(unit, a1, a2, a3)
     }
     Some(actual)
 }
 
-unsafe extern fn update_visibility_point() -> Option<unsafe extern fn(*mut c_void)> {
-    unsafe extern fn actual(lone_sprite: *mut c_void) {
+unsafe extern "C" fn update_visibility_point() -> Option<unsafe extern "C" fn(*mut c_void)> {
+    unsafe extern "C" fn actual(lone_sprite: *mut c_void) {
         bw::update_visibility_point(lone_sprite);
     }
     Some(actual)
 }
 
-unsafe extern fn create_lone_sprite() ->
-    Option<unsafe extern fn(u32, i32, i32, u32) -> *mut c_void>
+unsafe extern "C" fn create_lone_sprite() ->
+    Option<unsafe extern "C" fn(u32, i32, i32, u32) -> *mut c_void>
 {
-    unsafe extern fn actual(id: u32, x: i32, y: i32, player: u32) -> *mut c_void {
+    unsafe extern "C" fn actual(id: u32, x: i32, y: i32, player: u32) -> *mut c_void {
         bw::create_lone_sprite(id, x, y, player)
     }
     Some(actual)
 }
 
-unsafe extern fn create_bullet() ->
-    Option<unsafe extern fn(u32, i32, i32, u32, u32, *mut c_void) -> *mut c_void>
+unsafe extern "C" fn create_bullet() ->
+    Option<unsafe extern "C" fn(u32, i32, i32, u32, u32, *mut c_void) -> *mut c_void>
 {
-    unsafe extern fn actual(
+    unsafe extern "C" fn actual(
         id: u32,
         x: i32,
         y: i32,
@@ -1448,10 +1448,10 @@ unsafe extern fn create_bullet() ->
     Some(actual)
 }
 
-unsafe extern fn create_unit() ->
-    Option<unsafe extern fn(u32, i32, i32, u32, *const u8) -> *mut c_void>
+unsafe extern "C" fn create_unit() ->
+    Option<unsafe extern "C" fn(u32, i32, i32, u32, *const u8) -> *mut c_void>
 {
-    unsafe extern fn actual(
+    unsafe extern "C" fn actual(
         id: u32,
         x: i32,
         y: i32,
@@ -1463,42 +1463,42 @@ unsafe extern fn create_unit() ->
     Some(actual)
 }
 
-unsafe extern fn hook_create_bullet(
-    hook: unsafe extern fn(
+unsafe extern "C" fn hook_create_bullet(
+    hook: unsafe extern "C" fn(
         u32, i32, i32, u32, u32, *mut c_void,
-        unsafe extern fn(u32, i32, i32, u32, u32, *mut c_void) -> *mut c_void,
+        unsafe extern "C" fn(u32, i32, i32, u32, u32, *mut c_void) -> *mut c_void,
     ) -> *mut c_void,
 ) -> u32 {
     context().create_bullet.push(hook);
     1
 }
 
-unsafe extern fn hook_create_unit(
-    hook: unsafe extern fn(
+unsafe extern "C" fn hook_create_unit(
+    hook: unsafe extern "C" fn(
         u32, i32, i32, u32, *const u8,
-        unsafe extern fn(u32, i32, i32, u32, *const u8) -> *mut c_void,
+        unsafe extern "C" fn(u32, i32, i32, u32, *const u8) -> *mut c_void,
     ) -> *mut c_void,
 ) -> u32 {
     context().create_unit.push(hook);
     1
 }
 
-unsafe extern fn finish_unit_pre() -> Option<unsafe extern fn(*mut c_void)> {
-    unsafe extern fn actual(unit: *mut c_void) {
+unsafe extern "C" fn finish_unit_pre() -> Option<unsafe extern "C" fn(*mut c_void)> {
+    unsafe extern "C" fn actual(unit: *mut c_void) {
         bw::finish_unit_pre(unit);
     }
     Some(actual)
 }
 
-unsafe extern fn finish_unit_post() -> Option<unsafe extern fn(*mut c_void)> {
-    unsafe extern fn actual(unit: *mut c_void) {
+unsafe extern "C" fn finish_unit_post() -> Option<unsafe extern "C" fn(*mut c_void)> {
+    unsafe extern "C" fn actual(unit: *mut c_void) {
         bw::finish_unit_post(unit);
     }
     Some(actual)
 }
 
-unsafe extern fn get_sprite_position() -> Option<unsafe extern fn(*mut c_void, *mut u16)> {
-    unsafe extern fn func(sprite: *mut c_void, pos: *mut u16) {
+unsafe extern "C" fn get_sprite_position() -> Option<unsafe extern "C" fn(*mut c_void, *mut u16)> {
+    unsafe extern "C" fn func(sprite: *mut c_void, pos: *mut u16) {
         *pos.add(0) = (*(sprite as *mut bw::Sprite)).position.x as u16;
         *pos.add(1) = (*(sprite as *mut bw::Sprite)).position.y as u16;
     }
@@ -1506,8 +1506,8 @@ unsafe extern fn get_sprite_position() -> Option<unsafe extern fn(*mut c_void, *
     Some(func)
 }
 
-unsafe extern fn set_sprite_position() -> Option<unsafe extern fn(*mut c_void, *const u16)> {
-    unsafe extern fn func(sprite: *mut c_void, pos: *const u16) {
+unsafe extern "C" fn set_sprite_position() -> Option<unsafe extern "C" fn(*mut c_void, *const u16)> {
+    unsafe extern "C" fn func(sprite: *mut c_void, pos: *const u16) {
         (*(sprite as *mut bw::Sprite)).position.x = *pos.add(0) as i16;
         (*(sprite as *mut bw::Sprite)).position.y = *pos.add(1) as i16;
     }
@@ -1515,73 +1515,73 @@ unsafe extern fn set_sprite_position() -> Option<unsafe extern fn(*mut c_void, *
     Some(func)
 }
 
-unsafe extern fn ai_attack_prepare() -> Option<unsafe extern fn(u32, u32, u32, u32, u32) -> u32> {
-    unsafe extern fn actual(player: u32, x: u32, y: u32, arg4: u32, arg5: u32) -> u32 {
+unsafe extern "C" fn ai_attack_prepare() -> Option<unsafe extern "C" fn(u32, u32, u32, u32, u32) -> u32> {
+    unsafe extern "C" fn actual(player: u32, x: u32, y: u32, arg4: u32, arg5: u32) -> u32 {
         bw::ai_attack_prepare(player, x, y, arg4, arg5)
     }
     Some(actual)
 }
 
-unsafe extern fn give_ai() -> Option<unsafe extern fn(*mut c_void)> {
-    unsafe extern fn actual(unit: *mut c_void) {
+unsafe extern "C" fn give_ai() -> Option<unsafe extern "C" fn(*mut c_void)> {
+    unsafe extern "C" fn actual(unit: *mut c_void) {
         bw::give_ai(unit);
     }
     Some(actual)
 }
 
-unsafe extern fn hook_init_units(hook: unsafe extern fn(unsafe extern fn())) -> u32 {
+unsafe extern "C" fn hook_init_units(hook: unsafe extern "C" fn(unsafe extern "C" fn())) -> u32 {
     context().init_units.push(hook);
     1
 }
 
-unsafe extern fn hook_ai_step_region(
-    hook: unsafe extern fn(u32, u32, unsafe extern fn(u32, u32)),
+unsafe extern "C" fn hook_ai_step_region(
+    hook: unsafe extern "C" fn(u32, u32, unsafe extern "C" fn(u32, u32)),
 ) -> u32 {
     hook_func(FuncId::AiStepRegion as u16, hook as usize)
 }
 
-unsafe extern fn extended_arrays(
+unsafe extern "C" fn extended_arrays(
     out: *mut *mut samase_plugin::ExtendedArray,
 ) -> usize {
     *out = null_mut();
     0
 }
 
-unsafe extern fn get_tooltip_draw_func() ->
-    Option<unsafe extern fn() -> Option<unsafe extern fn(*mut c_void)>>
+unsafe extern "C" fn get_tooltip_draw_func() ->
+    Option<unsafe extern "C" fn() -> Option<unsafe extern "C" fn(*mut c_void)>>
 {
     // Dunno how it works on 1161
     None
 }
 
-unsafe extern fn set_tooltip_draw_func() ->
-    Option<unsafe extern fn(Option<unsafe extern fn(*mut c_void)>)>
+unsafe extern "C" fn set_tooltip_draw_func() ->
+    Option<unsafe extern "C" fn(Option<unsafe extern "C" fn(*mut c_void)>)>
 {
     // Dunno how it works on 1161
     None
 }
 
-unsafe extern fn hook_layout_draw_text(
-    _hook: unsafe extern fn(
+unsafe extern "C" fn hook_layout_draw_text(
+    _hook: unsafe extern "C" fn(
         u32, u32, *const u8, *mut u32, u32, *mut u32, u32, u32,
-        unsafe extern fn(u32, u32, *const u8, *mut u32, u32, *mut u32, u32, u32) -> *const u8,
+        unsafe extern "C" fn(u32, u32, *const u8, *mut u32, u32, *mut u32, u32, u32) -> *const u8,
     ) -> *const u8,
 ) -> u32 {
     0
 }
 
-unsafe extern fn hook_draw_graphic_layers(
-    _hook: unsafe extern fn(u32, unsafe extern fn(u32)),
+unsafe extern "C" fn hook_draw_graphic_layers(
+    _hook: unsafe extern "C" fn(u32, unsafe extern "C" fn(u32)),
 ) -> u32 {
     0
 }
 
-unsafe extern fn graphic_layers() -> Option<unsafe extern fn() -> *mut c_void> {
+unsafe extern "C" fn graphic_layers() -> Option<unsafe extern "C" fn() -> *mut c_void> {
     // Dunno how it works on 1161
     None
 }
 
-unsafe extern fn set_prism_shaders(
+unsafe extern "C" fn set_prism_shaders(
     _shader_type: u32,
     _id: u32,
     _data: *const u8,
@@ -1590,7 +1590,7 @@ unsafe extern fn set_prism_shaders(
     0
 }
 
-unsafe extern fn crash_with_message(msg: *const u8) -> ! {
+unsafe extern "C" fn crash_with_message(msg: *const u8) -> ! {
     use std::path::Path;
     let path = if Path::new("errors").is_dir() {
         Path::new("errors/plugin_crash")
@@ -1603,10 +1603,10 @@ unsafe extern fn crash_with_message(msg: *const u8) -> ! {
     std::process::exit(5);
 }
 
-unsafe extern fn step_iscript() ->
-    Option<unsafe extern fn(*mut c_void, *mut c_void, u32, *mut u32)>
+unsafe extern "C" fn step_iscript() ->
+    Option<unsafe extern "C" fn(*mut c_void, *mut c_void, u32, *mut u32)>
 {
-    unsafe extern fn actual(
+    unsafe extern "C" fn actual(
         image: *mut c_void,
         iscript: *mut c_void,
         dry_run: u32,
@@ -1617,60 +1617,60 @@ unsafe extern fn step_iscript() ->
     Some(actual)
 }
 
-unsafe extern fn is_outside_game_screen() -> Option<unsafe extern fn(i32, i32) -> u32> {
-    unsafe extern fn actual(x: i32, y: i32) -> u32 {
+unsafe extern "C" fn is_outside_game_screen() -> Option<unsafe extern "C" fn(i32, i32) -> u32> {
+    unsafe extern "C" fn actual(x: i32, y: i32) -> u32 {
         bw::is_outside_game_screen(x, y)
     }
     Some(actual)
 }
 
-unsafe extern fn screen_pos() -> Option<unsafe extern fn(*mut i32, *mut i32)> {
-    unsafe extern fn actual(x: *mut i32, y: *mut i32) {
+unsafe extern "C" fn screen_pos() -> Option<unsafe extern "C" fn(*mut i32, *mut i32)> {
+    unsafe extern "C" fn actual(x: *mut i32, y: *mut i32) {
         *x = *bw::screen_x;
         *y = *bw::screen_y;
     }
     Some(actual)
 }
 
-unsafe extern fn ui_scale() -> Option<unsafe extern fn() -> f32> {
-    unsafe extern fn actual() -> f32 {
+unsafe extern "C" fn ui_scale() -> Option<unsafe extern "C" fn() -> f32> {
+    unsafe extern "C" fn actual() -> f32 {
         1.0
     }
     Some(actual)
 }
 
-unsafe extern fn first_fow_sprite() -> Option<unsafe extern fn() -> *mut c_void> {
-    unsafe extern fn actual() -> *mut c_void {
+unsafe extern "C" fn first_fow_sprite() -> Option<unsafe extern "C" fn() -> *mut c_void> {
+    unsafe extern "C" fn actual() -> *mut c_void {
         *bw::first_fow_sprite
     }
     Some(actual)
 }
 
-unsafe extern fn is_replay() -> Option<unsafe extern fn() -> u32> {
-    unsafe extern fn actual() -> u32 {
+unsafe extern "C" fn is_replay() -> Option<unsafe extern "C" fn() -> u32> {
+    unsafe extern "C" fn actual() -> u32 {
         *bw::is_replay
     }
     Some(actual)
 }
 
-unsafe extern fn is_multiplayer() -> Option<unsafe extern fn() -> u32> {
-    unsafe extern fn actual() -> u32 {
+unsafe extern "C" fn is_multiplayer() -> Option<unsafe extern "C" fn() -> u32> {
+    unsafe extern "C" fn actual() -> u32 {
         *bw::is_multiplayer as u32
     }
     Some(actual)
 }
 
-unsafe extern fn local_player_id() -> Option<unsafe extern fn() -> u32> {
-    unsafe extern fn actual() -> u32 {
+unsafe extern "C" fn local_player_id() -> Option<unsafe extern "C" fn() -> u32> {
+    unsafe extern "C" fn actual() -> u32 {
         *bw::local_player_id
     }
     Some(actual)
 }
 
-unsafe extern fn active_iscript_objects() ->
-    Option<unsafe extern fn(*mut *mut c_void, *const *mut c_void)>
+unsafe extern "C" fn active_iscript_objects() ->
+    Option<unsafe extern "C" fn(*mut *mut c_void, *const *mut c_void)>
 {
-    unsafe extern fn actual(read: *mut *mut c_void, write: *const *mut c_void) {
+    unsafe extern "C" fn actual(read: *mut *mut c_void, write: *const *mut c_void) {
         if !read.is_null() {
             *read.add(0) = *bw::active_iscript_flingy;
             *read.add(1) = *bw::active_iscript_unit;
@@ -1685,29 +1685,29 @@ unsafe extern fn active_iscript_objects() ->
     Some(actual)
 }
 
-unsafe extern fn hook_on_first_file_access(hook: unsafe extern fn()) {
+unsafe extern "C" fn hook_on_first_file_access(hook: unsafe extern "C" fn()) {
     FIRST_FILE_ACCESS_HOOKS.lock().push(hook);
 }
 
-unsafe extern fn hook_step_order(
-    hook: unsafe extern fn(*mut c_void, unsafe extern fn(*mut c_void)),
+unsafe extern "C" fn hook_step_order(
+    hook: unsafe extern "C" fn(*mut c_void, unsafe extern "C" fn(*mut c_void)),
 ) -> u32 {
     context().step_order.push(hook);
     1
 }
 
-unsafe extern fn hook_step_order_hidden(
-    hook: unsafe extern fn(*mut c_void, unsafe extern fn(*mut c_void)),
+unsafe extern "C" fn hook_step_order_hidden(
+    hook: unsafe extern "C" fn(*mut c_void, unsafe extern "C" fn(*mut c_void)),
 ) -> u32 {
     context().step_order_hidden.push(hook);
     1
 }
 
-unsafe extern fn dat(dat: u32) -> Option<unsafe extern fn() -> *mut c_void> {
+unsafe extern "C" fn dat(dat: u32) -> Option<unsafe extern "C" fn() -> *mut c_void> {
     macro_rules! dat_fns {
         ($($name:ident,)*) => {
             $(
-                unsafe extern fn $name() -> *mut c_void {
+                unsafe extern "C" fn $name() -> *mut c_void {
                     bw::$name.ptr() as *mut c_void
                 }
             )*
@@ -1725,7 +1725,7 @@ unsafe extern fn dat(dat: u32) -> Option<unsafe extern fn() -> *mut c_void> {
         sfxdata_dat,
         portdata_dat,
     }
-    let fun: unsafe extern fn() -> *mut c_void = match dat {
+    let fun: unsafe extern "C" fn() -> *mut c_void = match dat {
         0 => units_dat,
         1 => weapons_dat,
         2 => flingy_dat,
@@ -1741,11 +1741,11 @@ unsafe extern fn dat(dat: u32) -> Option<unsafe extern fn() -> *mut c_void> {
     Some(fun)
 }
 
-unsafe extern fn extended_dat(dat: u32) -> Option<unsafe extern fn(*mut usize) -> *mut c_void> {
+unsafe extern "C" fn extended_dat(dat: u32) -> Option<unsafe extern "C" fn(*mut usize) -> *mut c_void> {
     macro_rules! dat_fns {
         ($($name:ident, $len:expr,)*) => {
             $(
-                unsafe extern fn $name(len: *mut usize) -> *mut c_void {
+                unsafe extern "C" fn $name(len: *mut usize) -> *mut c_void {
                     *len = $len;
                     bw::$name.ptr() as *mut c_void
                 }
@@ -1764,7 +1764,7 @@ unsafe extern fn extended_dat(dat: u32) -> Option<unsafe extern fn(*mut usize) -
         sfxdata_dat, 0x5,
         portdata_dat, 0x6,
     }
-    let fun: unsafe extern fn(*mut usize) -> *mut c_void = match dat {
+    let fun: unsafe extern "C" fn(*mut usize) -> *mut c_void = match dat {
         0 => units_dat,
         1 => weapons_dat,
         2 => flingy_dat,
@@ -1780,121 +1780,121 @@ unsafe extern fn extended_dat(dat: u32) -> Option<unsafe extern fn(*mut usize) -
     Some(fun)
 }
 
-unsafe extern fn hook_process_commands(
-    hook: unsafe extern fn(*const c_void, u32, u32, unsafe extern fn(*const c_void, u32, u32)),
+unsafe extern "C" fn hook_process_commands(
+    hook: unsafe extern "C" fn(*const c_void, u32, u32, unsafe extern "C" fn(*const c_void, u32, u32)),
 ) -> u32 {
     context().process_commands.push(hook);
     1
 }
 
-unsafe extern fn hook_process_lobby_commands(
-    hook: unsafe extern fn(*const c_void, u32, u32, unsafe extern fn(*const c_void, u32, u32)),
+unsafe extern "C" fn hook_process_lobby_commands(
+    hook: unsafe extern "C" fn(*const c_void, u32, u32, unsafe extern "C" fn(*const c_void, u32, u32)),
 ) -> u32 {
     context().process_lobby_commands.push(hook);
     1
 }
 
-unsafe extern fn hook_send_command(
-    hook: unsafe extern fn(*mut c_void, u32, unsafe extern fn(*mut c_void, u32)),
+unsafe extern "C" fn hook_send_command(
+    hook: unsafe extern "C" fn(*mut c_void, u32, unsafe extern "C" fn(*mut c_void, u32)),
 ) -> u32 {
     context().send_command.push(hook);
     1
 }
 
-unsafe extern fn hook_step_secondary_order(
-    hook: unsafe extern fn(*mut c_void, unsafe extern fn(*mut c_void)),
+unsafe extern "C" fn hook_step_secondary_order(
+    hook: unsafe extern "C" fn(*mut c_void, unsafe extern "C" fn(*mut c_void)),
 ) -> u32 {
     context().step_secondary_order.push(hook);
     1
 }
 
-unsafe extern fn hook_game_screen_rclick(
-    hook: unsafe extern fn(*mut c_void, unsafe extern fn(*mut c_void)),
+unsafe extern "C" fn hook_game_screen_rclick(
+    hook: unsafe extern "C" fn(*mut c_void, unsafe extern "C" fn(*mut c_void)),
 ) -> u32 {
     context().game_screen_rclick.push(hook);
     1
 }
 
-unsafe extern fn hook_draw_image(
-    hook: unsafe extern fn(*mut c_void, unsafe extern fn(*mut c_void)),
+unsafe extern "C" fn hook_draw_image(
+    hook: unsafe extern "C" fn(*mut c_void, unsafe extern "C" fn(*mut c_void)),
 ) -> u32 {
     context().draw_image.push(hook);
     1
 }
 
-unsafe extern fn hook_run_dialog(
-    hook: unsafe extern fn(
+unsafe extern "C" fn hook_run_dialog(
+    hook: unsafe extern "C" fn(
         *mut c_void,
         usize,
         *mut c_void,
-        unsafe extern fn(*mut c_void, usize, *mut c_void) -> u32,
+        unsafe extern "C" fn(*mut c_void, usize, *mut c_void) -> u32,
     ) -> u32,
 ) -> u32 {
     context().run_dialog.push(hook);
     1
 }
 
-unsafe extern fn hook_spawn_dialog(
-    hook: unsafe extern fn(
+unsafe extern "C" fn hook_spawn_dialog(
+    hook: unsafe extern "C" fn(
         *mut c_void,
         usize,
         *mut c_void,
-        unsafe extern fn(*mut c_void, usize, *mut c_void) -> u32,
+        unsafe extern "C" fn(*mut c_void, usize, *mut c_void) -> u32,
     ) -> u32,
 ) -> u32 {
     context().spawn_dialog.push(hook);
     1
 }
 
-unsafe extern fn hook_play_sound(
-    _hook: unsafe extern fn(
+unsafe extern "C" fn hook_play_sound(
+    _hook: unsafe extern "C" fn(
         u32,
         f32,
         *mut c_void,
         *mut i32,
         *mut i32,
-        unsafe extern fn(u32, f32, *mut c_void, *mut i32, *mut i32) -> u32,
+        unsafe extern "C" fn(u32, f32, *mut c_void, *mut i32, *mut i32) -> u32,
     ) -> u32,
 ) -> u32 {
     // 1161 function args aren't same as SCR
     0
 }
 
-unsafe extern fn hook_game_loop_start(
-    _hook: unsafe extern fn(),
+unsafe extern "C" fn hook_game_loop_start(
+    _hook: unsafe extern "C" fn(),
 ) -> u32 {
     // TODO
     0
 }
 
-unsafe extern fn hook_ai_focus_disabled(
-    hook: unsafe extern fn(*mut c_void, unsafe extern fn(*mut c_void)),
+unsafe extern "C" fn hook_ai_focus_disabled(
+    hook: unsafe extern "C" fn(*mut c_void, unsafe extern "C" fn(*mut c_void)),
 ) -> u32 {
     context().ai_focus_disabled.push(hook);
     1
 }
 
-unsafe extern fn hook_ai_focus_air(
-    hook: unsafe extern fn(*mut c_void, unsafe extern fn(*mut c_void)),
+unsafe extern "C" fn hook_ai_focus_air(
+    hook: unsafe extern "C" fn(*mut c_void, unsafe extern "C" fn(*mut c_void)),
 ) -> u32 {
     context().ai_focus_air.push(hook);
     1
 }
 
-unsafe extern fn unit_base_strength() -> Option<unsafe extern fn(*mut *mut u32)> {
-    unsafe extern fn actual(out: *mut *mut u32) {
+unsafe extern "C" fn unit_base_strength() -> Option<unsafe extern "C" fn(*mut *mut u32)> {
+    unsafe extern "C" fn actual(out: *mut *mut u32) {
         *out = bw::unit_strength.mut_ptr() as *mut u32;
         *out.add(1) = (bw::unit_strength.mut_ptr() as *mut u32).add(0xe4);
     }
     Some(actual)
 }
 
-unsafe extern fn read_map_file() -> Option<unsafe extern fn(*const u8, *mut usize) -> *mut u8> {
+unsafe extern "C" fn read_map_file() -> Option<unsafe extern "C" fn(*const u8, *mut usize) -> *mut u8> {
     // TODO
     None
 }
 
-unsafe extern fn hook_func(id: u16, hook: usize) -> u32 {
+unsafe extern "C" fn hook_func(id: u16, hook: usize) -> u32 {
     if id >= samase_plugin::MAX_FUNC_ID {
         return 0;
     }
@@ -1908,185 +1908,185 @@ unsafe extern fn hook_func(id: u16, hook: usize) -> u32 {
 }
 
 #[allow(bad_style)]
-unsafe extern fn get_func(id: u16) -> Option<unsafe extern fn()> {
+unsafe extern "C" fn get_func(id: u16) -> Option<unsafe extern "C" fn()> {
     if id >= samase_plugin::MAX_FUNC_ID {
         return None;
     }
 
-    unsafe extern fn UnitCanRally(a: usize) -> usize {
+    unsafe extern "C" fn UnitCanRally(a: usize) -> usize {
         bw::UnitCanRally(a)
     }
-    unsafe extern fn UnitCanBeInfested(a: usize) -> usize {
+    unsafe extern "C" fn UnitCanBeInfested(a: usize) -> usize {
         bw::UnitCanBeInfested(a)
     }
-    unsafe extern fn DoMissileDamage(a: usize) -> usize {
+    unsafe extern "C" fn DoMissileDamage(a: usize) -> usize {
         bw::DoMissileDamage(a)
     }
-    unsafe extern fn HitUnit(a: usize, b: usize, c: usize) -> usize {
+    unsafe extern "C" fn HitUnit(a: usize, b: usize, c: usize) -> usize {
         bw::HitUnit(a, b, c)
     }
-    unsafe extern fn HallucinationHit(a: usize, b: usize, c: usize, d: usize) -> usize {
+    unsafe extern "C" fn HallucinationHit(a: usize, b: usize, c: usize, d: usize) -> usize {
         bw::HallucinationHit(a, b, c, d)
     }
-    unsafe extern fn DamageUnit(a: usize, b: usize, c: usize, d: usize, e: usize) -> usize {
+    unsafe extern "C" fn DamageUnit(a: usize, b: usize, c: usize, d: usize, e: usize) -> usize {
         bw::DamageUnit(a, b, c, d, e)
     }
-    unsafe extern fn KillUnit(a: usize) -> usize {
+    unsafe extern "C" fn KillUnit(a: usize) -> usize {
         bw::KillUnit(a)
     }
-    unsafe extern fn UnitSetHp(a: usize, b: usize) -> usize {
+    unsafe extern "C" fn UnitSetHp(a: usize, b: usize) -> usize {
         bw::UnitSetHp(a, b)
     }
-    unsafe extern fn TransformUnit(a: usize, b: usize) -> usize {
+    unsafe extern "C" fn TransformUnit(a: usize, b: usize) -> usize {
         bw::TransformUnit(a, b)
     }
-    unsafe extern fn GiveUnit(a: usize, b: usize) -> usize {
+    unsafe extern "C" fn GiveUnit(a: usize, b: usize) -> usize {
         bw::GiveUnit(a, b)
     }
-    unsafe extern fn PlaceCreepRect(a: usize, b: usize, c: usize, d: usize, e: usize) -> usize {
+    unsafe extern "C" fn PlaceCreepRect(a: usize, b: usize, c: usize, d: usize, e: usize) -> usize {
         bw::PlaceCreepRect(a, b, c, d, e)
     }
-    unsafe extern fn PlaceFinishedUnitCreep(a: usize, b: usize, c: usize) -> usize {
+    unsafe extern "C" fn PlaceFinishedUnitCreep(a: usize, b: usize, c: usize) -> usize {
         bw::PlaceFinishedUnitCreep(a, b, c)
     }
-    unsafe extern fn AddAiToTrainedUnit(a: usize, b: usize) -> usize {
+    unsafe extern "C" fn AddAiToTrainedUnit(a: usize, b: usize) -> usize {
         bw::AddAiToTrainedUnit(a, b)
     }
-    unsafe extern fn AddBuildingAi(a: usize, b: usize) -> usize {
+    unsafe extern "C" fn AddBuildingAi(a: usize, b: usize) -> usize {
         bw::AddBuildingAi(a, b)
     }
-    unsafe extern fn AddTownUnitAi(a: usize, b: usize) -> usize {
+    unsafe extern "C" fn AddTownUnitAi(a: usize, b: usize) -> usize {
         bw::AddTownUnitAi(a, b)
     }
-    unsafe extern fn AddMilitaryAi(a: usize, b: usize, c: usize) -> usize {
+    unsafe extern "C" fn AddMilitaryAi(a: usize, b: usize, c: usize) -> usize {
         bw::AddMilitaryAi(a, b, c)
     }
-    unsafe extern fn AiRemoveUnit(a: usize, b: usize) -> usize {
+    unsafe extern "C" fn AiRemoveUnit(a: usize, b: usize) -> usize {
         bw::AiRemoveUnit(a, b)
     }
-    unsafe extern fn AiRemoveUnitMilitary(a: usize, b: usize) -> usize {
+    unsafe extern "C" fn AiRemoveUnitMilitary(a: usize, b: usize) -> usize {
         bw::AiRemoveUnitMilitary(a, b)
     }
-    unsafe extern fn AiRemoveUnitTown(a: usize, b: usize) -> usize {
+    unsafe extern "C" fn AiRemoveUnitTown(a: usize, b: usize) -> usize {
         bw::AiRemoveUnitTown(a, b)
     }
-    unsafe extern fn UnitMaxEnergy(a: usize) -> usize {
+    unsafe extern "C" fn UnitMaxEnergy(a: usize) -> usize {
         bw::UnitMaxEnergy(a)
     }
-    unsafe extern fn UnitAttackRange(a: usize, b: usize) -> usize {
+    unsafe extern "C" fn UnitAttackRange(a: usize, b: usize) -> usize {
         bw::UnitAttackRange(a, b)
     }
-    unsafe extern fn UnitTargetAcquisitionRange(a: usize) -> usize {
+    unsafe extern "C" fn UnitTargetAcquisitionRange(a: usize) -> usize {
         bw::UnitTargetAcquisitionRange(a)
     }
-    unsafe extern fn UnitSightRange(a: usize, b: usize) -> usize {
+    unsafe extern "C" fn UnitSightRange(a: usize, b: usize) -> usize {
         bw::UnitSightRange(a, b)
     }
-    unsafe extern fn CheckWeaponTargetingFlags(a: usize, b: usize, c: usize) -> usize {
+    unsafe extern "C" fn CheckWeaponTargetingFlags(a: usize, b: usize, c: usize) -> usize {
         bw::CheckWeaponTargetingFlags(a, b, c)
     }
-    unsafe extern fn CheckTechTargeting(
+    unsafe extern "C" fn CheckTechTargeting(
         a: usize, b: usize, c: usize, d: usize, e: usize, f: usize, g: usize
     ) -> usize {
         bw::CheckTechTargeting(a, b, c, d, e, f, g)
     }
-    unsafe extern fn CheckOrderTargeting(
+    unsafe extern "C" fn CheckOrderTargeting(
         a: usize, b: usize, c: usize, d: usize, e: usize, f: usize,
     ) -> usize {
         bw::CheckOrderTargeting(a, b, c, d, e, f)
     }
-    unsafe extern fn CheckFowOrderTargeting(
+    unsafe extern "C" fn CheckFowOrderTargeting(
         a: usize, b: usize, c: usize, d: usize, e: usize, f: usize,
     ) -> usize {
         bw::CheckFowOrderTargeting(a, b, c, d, e, f)
     }
-    unsafe extern fn HideUnit(a: usize) -> usize {
+    unsafe extern "C" fn HideUnit(a: usize) -> usize {
         bw::HideUnit(a)
     }
-    unsafe extern fn ShowUnit(a: usize) -> usize {
+    unsafe extern "C" fn ShowUnit(a: usize) -> usize {
         bw::ShowUnit(a)
     }
-    unsafe extern fn AiAddMilitaryToRegion(a: usize, b: usize, c: usize) -> usize {
+    unsafe extern "C" fn AiAddMilitaryToRegion(a: usize, b: usize, c: usize) -> usize {
         bw::AiAddMilitaryToRegion(a, b, c)
     }
-    unsafe extern fn AiAttackPrepare(a: usize, b: usize, c: usize, d: usize, e: usize) -> usize {
+    unsafe extern "C" fn AiAttackPrepare(a: usize, b: usize, c: usize, d: usize, e: usize) -> usize {
         bw::AiAttackPrepare(a, b, c, d, e)
     }
-    unsafe extern fn AiTrainMilitary(a: usize) -> usize {
+    unsafe extern "C" fn AiTrainMilitary(a: usize) -> usize {
         bw::AiTrainMilitary(a)
     }
-    unsafe extern fn AiRegionUpdateStrength(a: usize) -> usize {
+    unsafe extern "C" fn AiRegionUpdateStrength(a: usize) -> usize {
         bw::AiRegionUpdateStrength(a)
     }
-    unsafe extern fn AiRegionUpdateTarget(a: usize) -> usize {
+    unsafe extern "C" fn AiRegionUpdateTarget(a: usize) -> usize {
         bw::AiRegionUpdateTarget(a)
     }
-    unsafe extern fn AiRegionAbandonIfOverwhelmed(a: usize) -> usize {
+    unsafe extern "C" fn AiRegionAbandonIfOverwhelmed(a: usize) -> usize {
         bw::AiRegionAbandonIfOverwhelmed(a)
     }
-    unsafe extern fn AiRegionPickAttackTarget(a: usize) -> usize {
+    unsafe extern "C" fn AiRegionPickAttackTarget(a: usize) -> usize {
         bw::AiRegionPickAttackTarget(a)
     }
-    unsafe extern fn AiStepRegion(a: usize, b: usize) -> usize {
+    unsafe extern "C" fn AiStepRegion(a: usize, b: usize) -> usize {
         bw::AiStepRegion(a, b)
     }
-    unsafe extern fn AiTargetExpansion(a: usize) -> usize {
+    unsafe extern "C" fn AiTargetExpansion(a: usize) -> usize {
         bw::AiTargetExpansion(a)
     }
-    unsafe extern fn StepUnitTimers(a: usize) -> usize {
+    unsafe extern "C" fn StepUnitTimers(a: usize) -> usize {
         bw::StepUnitTimers(a)
     }
-    unsafe extern fn StartCloaking(a: usize) -> usize {
+    unsafe extern "C" fn StartCloaking(a: usize) -> usize {
         bw::StartCloaking(a)
     }
-    unsafe extern fn UnitAiMilitary(a: usize) -> usize {
+    unsafe extern "C" fn UnitAiMilitary(a: usize) -> usize {
         bw::UnitAiMilitary(a)
     }
-    unsafe extern fn UnitAiWorker(a: usize) -> usize {
+    unsafe extern "C" fn UnitAiWorker(a: usize) -> usize {
         bw::UnitAiWorker(a)
     }
-    unsafe extern fn AiTryProgressSpendingRequest(a: usize) -> usize {
+    unsafe extern "C" fn AiTryProgressSpendingRequest(a: usize) -> usize {
         bw::AiTryProgressSpendingRequest(a)
     }
-    unsafe extern fn CanAttackUnit(a: usize, b: usize, c: usize) -> usize {
+    unsafe extern "C" fn CanAttackUnit(a: usize, b: usize, c: usize) -> usize {
         bw::CanAttackUnit(a, b, c)
     }
-    unsafe extern fn IsOutsideAttackRange(a: usize, b: usize) -> usize {
+    unsafe extern "C" fn IsOutsideAttackRange(a: usize, b: usize) -> usize {
         bw::IsOutsideAttackRange(a, b)
     }
-    unsafe extern fn AiCanTargetAttackThis(a: usize, b: usize) -> usize {
+    unsafe extern "C" fn AiCanTargetAttackThis(a: usize, b: usize) -> usize {
         bw::AiCanTargetAttackThis(a, b)
     }
-    unsafe extern fn AiTryReturnHome(a: usize, b: usize) -> usize {
+    unsafe extern "C" fn AiTryReturnHome(a: usize, b: usize) -> usize {
         bw::AiTryReturnHome(a, b)
     }
-    unsafe extern fn PrepareBuildUnit(a: usize, b: usize) -> usize {
+    unsafe extern "C" fn PrepareBuildUnit(a: usize, b: usize) -> usize {
         bw::PrepareBuildUnit(a, b)
     }
-    unsafe extern fn CalculatePath(a: usize) -> usize {
+    unsafe extern "C" fn CalculatePath(a: usize) -> usize {
         bw::CalculatePath(a)
     }
-    unsafe extern fn AiPlaceBuilding(a: usize, b: usize, c: usize, d: usize, e: usize) -> usize {
+    unsafe extern "C" fn AiPlaceBuilding(a: usize, b: usize, c: usize, d: usize, e: usize) -> usize {
         bw::AiPlaceBuilding(a, b, c, d, e)
     }
-    unsafe extern fn GetChokePointRegions(
+    unsafe extern "C" fn GetChokePointRegions(
         a: usize, b: usize, c: usize, d: usize, e: usize, f: usize,
     ) -> usize {
         bw::GetChokePointRegions(a, b, c, d, e, f)
     }
-    unsafe extern fn AiUpdateBuildingPlacementState(
+    unsafe extern "C" fn AiUpdateBuildingPlacementState(
         a: usize, b: usize, c: usize, d: usize, e: usize,
     ) -> usize {
         bw::AiUpdateBuildingPlacementState(a, b, c, d, e)
     }
-    unsafe extern fn UpdateBuildingPlacementState(
+    unsafe extern "C" fn UpdateBuildingPlacementState(
         a: usize, b: usize, c: usize, d: usize, e: usize, f: usize, g: usize, h: usize, i: usize,
     ) -> usize {
         bw::UpdateBuildingPlacementState(a, b, c, d, e, f, g, h, i)
     }
-    unsafe extern fn ForEachUnitInArea(
+    unsafe extern "C" fn ForEachUnitInArea(
         area: *mut u16,
-        func: unsafe extern fn(usize, *mut c_void) -> u32,
+        func: unsafe extern "C" fn(usize, *mut c_void) -> u32,
         param: *mut c_void,
     ) -> usize {
         let mut units = bw::FindUnitsRect(area);
@@ -2286,7 +2286,7 @@ fn var_addr_size(var: VarId) -> (usize, u32) {
     }
 }
 
-unsafe extern fn load_vars(vars: *const u16, results: *mut u8, len: usize) {
+unsafe extern "C" fn load_vars(vars: *const u16, results: *mut u8, len: usize) {
     let vars = std::slice::from_raw_parts(vars, len);
     let results = std::slice::from_raw_parts_mut(results, len);
     for i in 0..len {
@@ -2300,7 +2300,7 @@ unsafe extern fn load_vars(vars: *const u16, results: *mut u8, len: usize) {
     }
 }
 
-unsafe extern fn read_vars(vars: *const u16, results: *mut usize, len: usize) {
+unsafe extern "C" fn read_vars(vars: *const u16, results: *mut usize, len: usize) {
     let vars = std::slice::from_raw_parts(vars, len);
     let results = std::slice::from_raw_parts_mut(results, len);
     for i in 0..len {
@@ -2319,7 +2319,7 @@ unsafe extern fn read_vars(vars: *const u16, results: *mut usize, len: usize) {
     }
 }
 
-unsafe extern fn write_vars(vars: *const u16, values: *const usize, len: usize) {
+unsafe extern "C" fn write_vars(vars: *const u16, values: *const usize, len: usize) {
     let vars = std::slice::from_raw_parts(vars, len);
     let values = std::slice::from_raw_parts(values, len);
     for i in 0..len {
@@ -2336,7 +2336,7 @@ unsafe extern fn write_vars(vars: *const u16, values: *const usize, len: usize) 
     }
 }
 
-pub unsafe extern fn debug_ui_add_tab(
+pub unsafe extern "C" fn debug_ui_add_tab(
     _tab: *const samase_plugin::FfiStr,
     _subtab: *const samase_plugin::FfiStr,
     _cb: samase_plugin::DebugUiDrawCb,
@@ -2345,11 +2345,11 @@ pub unsafe extern fn debug_ui_add_tab(
     0
 }
 
-pub unsafe extern fn debug_ui_add_log() -> *mut samase_plugin::DebugUiLog {
+pub unsafe extern "C" fn debug_ui_add_log() -> *mut samase_plugin::DebugUiLog {
     null_mut()
 }
 
-pub unsafe extern fn debug_log_add_data(
+pub unsafe extern "C" fn debug_log_add_data(
     _log: *mut samase_plugin::DebugUiLog,
     _format: *const samase_plugin::FfiStr,
     _param: *const samase_plugin::ComplexLineParam,
@@ -2358,29 +2358,29 @@ pub unsafe extern fn debug_log_add_data(
 ) {
 }
 
-pub unsafe extern fn debug_log_clear(
+pub unsafe extern "C" fn debug_log_clear(
     _log: *mut samase_plugin::DebugUiLog,
 ) {
 }
 
-unsafe extern fn create_extended_unit_field(_: *const samase_plugin::FfiStr) -> u32 {
+unsafe extern "C" fn create_extended_unit_field(_: *const samase_plugin::FfiStr) -> u32 {
     // Not implemented
     0
 }
 
-unsafe extern fn read_extended_unit_field(_: u32, _: u32) -> u32 {
+unsafe extern "C" fn read_extended_unit_field(_: u32, _: u32) -> u32 {
     // Not implemented
     0
 }
 
-unsafe extern fn write_extended_unit_field(_: u32, _: u32, _: u32) -> u32 {
+unsafe extern "C" fn write_extended_unit_field(_: u32, _: u32, _: u32) -> u32 {
     // Not implemented
     0
 }
 
-unsafe extern fn misc_ui_state(out_size: usize) -> Option<unsafe extern fn(*mut u8)> {
+unsafe extern "C" fn misc_ui_state(out_size: usize) -> Option<unsafe extern "C" fn(*mut u8)> {
     static OUT_SIZE: AtomicUsize = AtomicUsize::new(0);
-    unsafe extern fn actual(out: *mut u8) {
+    unsafe extern "C" fn actual(out: *mut u8) {
         // NOTE: Leaving open for future updates with larger out_size but not assuming alingment
         // on out
         let out_size = OUT_SIZE.load(Ordering::Acquire);
@@ -2402,30 +2402,30 @@ unsafe extern fn misc_ui_state(out_size: usize) -> Option<unsafe extern fn(*mut 
     Some(actual)
 }
 
-unsafe extern fn hook_renderer(
+unsafe extern "C" fn hook_renderer(
     _type: u32,
-    _hook: unsafe extern fn(),
+    _hook: unsafe extern "C" fn(),
 ) -> u32 {
     0
 }
 
-unsafe extern fn get_iscript_bin() -> Option<unsafe extern fn() -> *mut c_void> {
-    unsafe extern fn actual() -> *mut c_void {
+unsafe extern "C" fn get_iscript_bin() -> Option<unsafe extern "C" fn() -> *mut c_void> {
+    unsafe extern "C" fn actual() -> *mut c_void {
         *bw::iscript_bin
     }
     Some(actual)
 }
 
-unsafe extern fn set_iscript_bin() -> Option<unsafe extern fn(*mut c_void)> {
-    unsafe extern fn actual(value: *mut c_void) {
+unsafe extern "C" fn set_iscript_bin() -> Option<unsafe extern "C" fn(*mut c_void)> {
+    unsafe extern "C" fn actual(value: *mut c_void) {
         *bw::iscript_bin = value
     }
     Some(actual)
 }
 
-unsafe extern fn hook_iscript_opcode(
+unsafe extern "C" fn hook_iscript_opcode(
     opcode: u32,
-    hook: unsafe extern fn(*mut c_void, *mut c_void, *mut c_void, u32, *mut u32),
+    hook: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void, u32, *mut u32),
 ) -> u32 {
     if opcode < 0x100 {
         context().iscript_hooks.push((opcode as u8, hook));
@@ -2435,38 +2435,38 @@ unsafe extern fn hook_iscript_opcode(
     }
 }
 
-unsafe extern fn sprite_hlines() -> Option<unsafe extern fn() -> *mut *mut c_void> {
-    unsafe extern fn actual() -> *mut *mut c_void {
+unsafe extern "C" fn sprite_hlines() -> Option<unsafe extern "C" fn() -> *mut *mut c_void> {
+    unsafe extern "C" fn actual() -> *mut *mut c_void {
         &mut bw::sprite_hlines[0] as *mut *mut c_void
     }
     Some(actual)
 }
 
-unsafe extern fn sprite_hlines_end() -> Option<unsafe extern fn() -> *mut *mut c_void> {
-    unsafe extern fn actual() -> *mut *mut c_void {
+unsafe extern "C" fn sprite_hlines_end() -> Option<unsafe extern "C" fn() -> *mut *mut c_void> {
+    unsafe extern "C" fn actual() -> *mut *mut c_void {
         &mut bw::sprite_hlines_end[0] as *mut *mut c_void
     }
     Some(actual)
 }
 
-unsafe extern fn first_active_bullet() -> Option<unsafe extern fn() -> *mut c_void> {
-    unsafe extern fn actual() -> *mut c_void {
+unsafe extern "C" fn first_active_bullet() -> Option<unsafe extern "C" fn() -> *mut c_void> {
+    unsafe extern "C" fn actual() -> *mut c_void {
         *bw::first_active_bullet
     }
     Some(actual)
 }
 
-unsafe extern fn first_lone_sprite() -> Option<unsafe extern fn() -> *mut c_void> {
-    unsafe extern fn actual() -> *mut c_void {
+unsafe extern "C" fn first_lone_sprite() -> Option<unsafe extern "C" fn() -> *mut c_void> {
+    unsafe extern "C" fn actual() -> *mut c_void {
         *bw::first_lone_sprite
     }
     Some(actual)
 }
 
-unsafe extern fn add_overlay_iscript() ->
-    Option<unsafe extern fn(*mut c_void, u32, i32, i32, u32) -> *mut c_void>
+unsafe extern "C" fn add_overlay_iscript() ->
+    Option<unsafe extern "C" fn(*mut c_void, u32, i32, i32, u32) -> *mut c_void>
 {
-    unsafe extern fn actual(
+    unsafe extern "C" fn actual(
         image: *mut c_void,
         image_id: u32,
         x: i32,
@@ -2478,14 +2478,14 @@ unsafe extern fn add_overlay_iscript() ->
     Some(actual)
 }
 
-unsafe extern fn set_campaigns(val: *const *mut c_void) -> u32 {
+unsafe extern "C" fn set_campaigns(val: *const *mut c_void) -> u32 {
     write_exe_memory(&bw::campaigns[0] as *const *mut c_void as usize, val as *const u8, 6 * 4);
     1
 }
 
-unsafe extern fn hook_file_read(
+unsafe extern "C" fn hook_file_read(
     prefix: *const u8,
-    hook: unsafe extern fn(*const u8, *mut u32) -> *mut u8,
+    hook: unsafe extern "C" fn(*const u8, *mut u32) -> *mut u8,
 ) {
     let prefix = CStr::from_ptr(prefix as *const i8).to_bytes().into();
     FILE_READ_HOOKS.write().push(FileReadHook {
@@ -2495,11 +2495,11 @@ unsafe extern fn hook_file_read(
     });
 }
 
-unsafe extern fn extend_save(
+unsafe extern "C" fn extend_save(
     tag: *const u8,
     save: SaveHook,
     load: LoadHook,
-    init: unsafe extern fn(),
+    init: unsafe extern "C" fn(),
 ) -> u32 {
     let tag = CStr::from_ptr(tag as *const i8).to_string_lossy();
     samase_plugin::save::add_hook(tag.into(), save, load, init);
@@ -2507,7 +2507,7 @@ unsafe extern fn extend_save(
     1
 }
 
-unsafe extern fn hook_ingame_command(
+unsafe extern "C" fn hook_ingame_command(
     cmd: u32,
     hook: IngameCommandHook,
     len: Option<CommandLength>,
@@ -2519,11 +2519,11 @@ unsafe extern fn hook_ingame_command(
         return 0;
     }
     INGAME_COMMAND_HOOK.call_once(|| {
-        unsafe extern fn ingame_hook(
+        unsafe extern "C" fn ingame_hook(
             data: *const c_void,
             len: u32,
             replayed: u32,
-            orig: unsafe extern fn(*const c_void, u32, u32),
+            orig: unsafe extern "C" fn(*const c_void, u32, u32),
         ) {
             let globals = commands::IngameHookGlobals {
                 is_replay: *bw::is_replay,
@@ -2544,15 +2544,15 @@ unsafe extern fn hook_ingame_command(
     1
 }
 
-unsafe extern fn add_to_replay_data(data: *const u8, length: usize) {
+unsafe extern "C" fn add_to_replay_data(data: *const u8, length: usize) {
     // No code to support replay data for extended commands :l
     if *data.add(0) < 0x5d {
         bw::add_to_replay_data(*bw::replay_data, *bw::storm_command_user, data, length);
     }
 }
 
-unsafe extern fn dat_requirements() -> Option<unsafe extern fn(u32, u32) -> *const u16> {
-    unsafe extern fn inner(ty: u32, id: u32) -> *const u16 {
+unsafe extern "C" fn dat_requirements() -> Option<unsafe extern "C" fn(u32, u32) -> *const u16> {
+    unsafe extern "C" fn inner(ty: u32, id: u32) -> *const u16 {
         let arr = match ty {
             0 => *bw::unit_requirement_table,
             1 => *bw::upgrade_requirement_table,
@@ -2581,7 +2581,7 @@ unsafe extern fn dat_requirements() -> Option<unsafe extern fn(u32, u32) -> *con
 
 unsafe fn apply_aiscript_hooks(
     exe: &mut whack::ModulePatcher,
-    hooks: &[(u8, unsafe extern fn(*mut c_void))],
+    hooks: &[(u8, unsafe extern "C" fn(*mut c_void))],
     exec_heap: HANDLE,
 ) {
     if hooks.is_empty() {
@@ -2654,7 +2654,7 @@ unsafe fn apply_aiscript_hooks(
 
 unsafe fn apply_iscript_hooks(
     exe: &mut whack::ModulePatcher,
-    hooks: &[(u8, unsafe extern fn(*mut c_void, *mut c_void, *mut c_void, u32, *mut u32))],
+    hooks: &[(u8, unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void, u32, *mut u32))],
     exec_heap: HANDLE,
 ) {
     if hooks.is_empty() {
