@@ -806,6 +806,7 @@ impl Drop for Context {
                     // Not bw functions
                     AiPickBestPlacementPosition | AiPlacementFlags => (),
                     AiAttackClear => (), // Inlined in 1.16.1
+                    AiRemoveFromAttackForce | AiAddToAttackForce => (), // Maybe doable but lazy
                     GetRenderTarget => (),
                     MoveScreen => (),
                     SelectUnits => (),
@@ -2167,6 +2168,7 @@ unsafe extern "C" fn get_func(id: u16) -> Option<unsafe extern "C" fn()> {
         FuncId::FindNearestUnitInArea | FuncId::FindNearestUnitAroundUnit |
             FuncId::FindNearestUnitInAreaPoint => 0,
         FuncId::AiPickBestPlacementPosition | FuncId::AiPlacementFlags => 0,
+        FuncId::AiRemoveFromAttackForce | FuncId::AiAddToAttackForce => 0,
         FuncId::GetRenderTarget => 0,
         FuncId::MoveScreen => 0,
         FuncId::SelectUnits => 0,

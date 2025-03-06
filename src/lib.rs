@@ -457,6 +457,10 @@ pub enum FuncId {
     AiPickBestPlacementPosition,
     // a1 = builder_unit, player, unit_id
     AiPlacementFlags,
+    // a1 = player, a2 = unit_id, a3 = amount
+    AiAddToAttackForce,
+    // a1 = player, a2 = unit_id, a3 = amount
+    AiRemoveFromAttackForce,
 
     _Last,
 }
