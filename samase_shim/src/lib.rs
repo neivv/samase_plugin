@@ -1117,6 +1117,7 @@ pub fn init_1161() -> Context {
             create_extended_unit_field,
             read_extended_unit_field,
             write_extended_unit_field,
+            mutate_dat,
         };
         let mut patcher = PATCHER.lock();
         {
@@ -2378,6 +2379,11 @@ unsafe extern "C" fn read_extended_unit_field(_: u32, _: u32) -> u32 {
 unsafe extern "C" fn write_extended_unit_field(_: u32, _: u32, _: u32) -> u32 {
     // Not implemented
     0
+}
+
+unsafe extern "C" fn mutate_dat(_: u32, _: u32) -> *mut c_void {
+    // Not implemented
+    null_mut()
 }
 
 unsafe extern "C" fn misc_ui_state(out_size: usize) -> Option<unsafe extern "C" fn(*mut u8)> {

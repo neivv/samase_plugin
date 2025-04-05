@@ -10,7 +10,7 @@ use libc::c_void;
 use crate::commands::{CommandLength, IngameCommandHook};
 use crate::save::{SaveHook, LoadHook};
 
-pub const VERSION: u16 = 43;
+pub const VERSION: u16 = 44;
 pub const MAX_FUNC_ID: u16 = FuncId::_Last as u16;
 pub const MAX_VAR_ID: u16 = VarId::_Last as u16;
 
@@ -255,6 +255,10 @@ pub struct PluginApi {
     // unit index, field id, new value -> old value
     // Can be called outside plugin init function.
     pub write_extended_unit_field: unsafe extern "C" fn(u32, u32, u32) -> u32,
+    // Dat type, dat array index. Return bw::DatTable pointer (Same as fn extended_dat)
+    // and marks the array to be saved / loaded.
+    // Return null on error / unsupported input.
+    pub mutate_dat: unsafe extern "C" fn(u32, u32) -> *mut c_void,
 }
 
 // Extern struct.
