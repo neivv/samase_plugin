@@ -801,6 +801,14 @@ impl Drop for Context {
                             },
                         );
                     }
+                    CreateLoneSprite => {
+                        exe.hook_closure(
+                            bw::H_CreateLoneSprite,
+                            move |a, b, c, d, o| {
+                                hook4(a, b & 0xffff, c & 0xffff, d & 0xff, o)
+                            },
+                        );
+                    }
                     FindNearestUnitAroundUnit | FindNearestUnitInArea | ForEachUnitInArea |
                         FindNearestUnitInAreaPoint => (),
                     // Not bw functions
@@ -2108,6 +2116,11 @@ unsafe extern "C" fn get_func(id: u16) -> Option<unsafe extern "C" fn()> {
         *(0x6bee64 as *mut u32) = unit_count;
         result
     }
+    unsafe extern "C" fn CreateLoneSprite(
+        a: usize, b: usize, c: usize, d: usize
+    ) -> usize {
+        bw::CreateLoneSprite(a, b, c, d)
+    }
 
     let func: samase_plugin::FuncId = mem::transmute(id as u8);
     let value = match func {
@@ -2166,6 +2179,7 @@ unsafe extern "C" fn get_func(id: u16) -> Option<unsafe extern "C" fn()> {
         FuncId::GetChokePointRegions => GetChokePointRegions as usize,
         FuncId::AiUpdateBuildingPlacementState => AiUpdateBuildingPlacementState as usize,
         FuncId::UpdateBuildingPlacementState => UpdateBuildingPlacementState as usize,
+        FuncId::CreateLoneSprite => CreateLoneSprite as usize,
         FuncId::FindNearestUnitInArea | FuncId::FindNearestUnitAroundUnit |
             FuncId::FindNearestUnitInAreaPoint => 0,
         FuncId::AiPickBestPlacementPosition | FuncId::AiPlacementFlags => 0,

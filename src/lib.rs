@@ -465,6 +465,9 @@ pub enum FuncId {
     AiAddToAttackForce,
     // a1 = player, a2 = unit_id, a3 = amount
     AiRemoveFromAttackForce,
+    // a1 = sprite_id, x, y, player
+    // Creates an independent sprite (CThingy)
+    CreateLoneSprite,
 
     _Last,
 }
