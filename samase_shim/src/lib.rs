@@ -2223,7 +2223,7 @@ fn var_result(var: VarId) -> u8 {
             VarId::Allocator | VarId::UnitsVector | VarId::DrawCommands | VarId::VertexBuffer |
             VarId::Renderer | VarId::UseRgbColors | VarId::RgbColors | VarId::GameScreenWidthBwpx |
             VarId::GameScreenHeightBwpx | VarId::StepGameFrames |
-            VarId::StatportTalkingPortraitActive => 0,
+            VarId::StatportTalkingPortraitActive | VarId::ImagesVector | VarId::SpritesVector => 0,
         VarId::_Last => 1,
     }
 }
@@ -2298,7 +2298,8 @@ fn var_addr_size(var: VarId) -> (usize, u32) {
             VarId::Allocator | VarId::UnitsVector | VarId::DrawCommands | VarId::VertexBuffer |
             VarId::Renderer | VarId::UseRgbColors | VarId::RgbColors | VarId::GameScreenWidthBwpx |
             VarId::GameScreenHeightBwpx | VarId::StepGameFrames |
-            VarId::StatportTalkingPortraitActive => (0, 0),
+            VarId::StatportTalkingPortraitActive | VarId::ImagesVector |
+            VarId::SpritesVector => (0, 0),
         VarId::_Last => (0, 0),
     }
 }

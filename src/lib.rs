@@ -555,6 +555,8 @@ pub enum VarId {
     TilesetIndexedMapTiles,
     CreepOriginalTiles,
     CreepTileBorders,
+    SpritesVector,
+    ImagesVector,
 
     _Last,
 }
