@@ -5,13 +5,16 @@ authors = ["Markus Heikkinen <ittevien@gmail.com>"]
 edition = "2021"
 
 [dependencies]
-byteorder = "1.2"
-flate2 = "1.0.1"
-libc = "0.2"
+byteorder = { version = "1.2", optional = true }
+flate2 = { version = "1.0.1", optional = true }
 # Publicly used dependency of parking_lot, but needs to be new enough for MutexGuard::leak
-lock_api = "0.4.9"
-log = "0.4"
-once_cell = "1.7"
-parking_lot = "0.12"
-quick-error = "2.0"
-thread_local = "1.1"
+lock_api = { version = "0.4.9", optional = true }
+log = { version = "0.4", optional = true }
+once_cell = { version = "1.7", optional = true }
+parking_lot = { version = "0.12", optional = true }
+quick-error = { version = "2.0", optional = true }
+thread_local = { version = "1.1", optional = true }
+
+[features]
+implementer_helpers = ["byteorder", "flate2", "lock_api", "log", "once_cell", "parking_lot",
+    "quick-error", "thread_local"]

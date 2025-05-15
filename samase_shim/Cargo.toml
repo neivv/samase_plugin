@@ -14,6 +14,7 @@ winapi = { version = "0.3", features = ["heapapi", "libloaderapi", "winuser"] }
 
 [dependencies.samase_plugin]
 path = ".."
+features = ["implementer_helpers"]
 
 [dependencies.whack]
 git = "https://github.com/neivv/whack/"

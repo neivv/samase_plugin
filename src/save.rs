@@ -7,8 +7,7 @@ use parking_lot::{Mutex, MutexGuard, const_mutex};
 use quick_error::quick_error;
 use thread_local::ThreadLocal;
 
-pub type SaveHook = Option<unsafe extern "C" fn(unsafe extern "C" fn(*const u8, usize))>;
-pub type LoadHook = Option<unsafe extern "C" fn(*const u8, usize) -> u32>;
+pub use super::{SaveHook, LoadHook};
 
 const SAVE_MAGIC: u32 = 0x53736d53;
 const SAVE_VERSION: u32 = 0;

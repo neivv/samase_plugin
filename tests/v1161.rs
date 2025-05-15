@@ -38,10 +38,10 @@ fn v1161_compat() {
     assert_eq!(V1161_STATE.get(), 3);
 }
 
-unsafe extern fn nop_save(_add_data: unsafe extern fn(*const u8, usize)) {
+unsafe extern "C" fn nop_save(_add_data: unsafe extern "C" fn(*const u8, usize)) {
 }
 
-unsafe extern fn nop_init() {
+unsafe extern "C" fn nop_init() {
 }
 
 pub struct TestFile(Cursor<Vec<u8>>);
@@ -74,7 +74,7 @@ impl<'a> save::File for &'a mut TestFile {
     }
 }
 
-unsafe extern fn verify_mtl(data: *const u8, length: usize) -> u32 {
+unsafe extern "C" fn verify_mtl(data: *const u8, length: usize) -> u32 {
     V1161_STATE.set(V1161_STATE.get() + 1);
     let slice = slice::from_raw_parts(data, length);
     let compare = include_bytes!("mtl.bin");
@@ -82,7 +82,7 @@ unsafe extern fn verify_mtl(data: *const u8, length: usize) -> u32 {
     1
 }
 
-unsafe extern fn verify_aise(data: *const u8, length: usize) -> u32 {
+unsafe extern "C" fn verify_aise(data: *const u8, length: usize) -> u32 {
     V1161_STATE.set(V1161_STATE.get() + 1);
     let slice = slice::from_raw_parts(data, length);
     let compare = include_bytes!("aise.bin");
@@ -90,7 +90,7 @@ unsafe extern fn verify_aise(data: *const u8, length: usize) -> u32 {
     1
 }
 
-unsafe extern fn verify_aice(data: *const u8, length: usize) -> u32 {
+unsafe extern "C" fn verify_aice(data: *const u8, length: usize) -> u32 {
     V1161_STATE.set(V1161_STATE.get() + 1);
     let slice = slice::from_raw_parts(data, length);
     let compare = &[

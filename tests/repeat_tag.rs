@@ -51,29 +51,29 @@ fn repeat_tag() {
     );
 }
 
-unsafe extern fn nop_save(_add_data: unsafe extern fn(*const u8, usize)) {
+unsafe extern "C" fn nop_save(_add_data: unsafe extern "C" fn(*const u8, usize)) {
 }
 
-unsafe extern fn nop_load(_data: *const u8, _length: usize) -> u32 {
+unsafe extern "C" fn nop_load(_data: *const u8, _length: usize) -> u32 {
     1
 }
 
-unsafe extern fn nop_init() {
+unsafe extern "C" fn nop_init() {
 }
 
-unsafe extern fn init_hook() {
+unsafe extern "C" fn init_hook() {
     assert!(STATE.get() >= 2 && STATE.get() < 4);
     STATE.set(STATE.get() + 1);
 }
 
-unsafe extern fn save_hook(add_data: unsafe extern fn(*const u8, usize)) {
+unsafe extern "C" fn save_hook(add_data: unsafe extern "C" fn(*const u8, usize)) {
     assert!(STATE.get() < 2);
     STATE.set(STATE.get() + 1);
     let slice = [1, 2, 3, 4, 5, 7];
     add_data(slice.as_ptr(), slice.len());
 }
 
-unsafe extern fn load_hook(data: *const u8, length: usize) -> u32 {
+unsafe extern "C" fn load_hook(data: *const u8, length: usize) -> u32 {
     assert!(STATE.get() >= 4 && STATE.get() < 8);
     STATE.set(STATE.get() + 1);
     let slice = slice::from_raw_parts(data, length);

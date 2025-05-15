@@ -1,16 +1,13 @@
 use std::cell::RefCell;
+use std::ffi::c_void;
 use std::mem;
 use std::slice;
 
-use libc::c_void;
 use thread_local::ThreadLocal;
 use once_cell::sync::{Lazy, OnceCell};
 use parking_lot::{Mutex, MutexGuard, RwLock, const_mutex, const_rwlock};
 
-// data, len, game player, unique player, orig
-pub type IngameCommandHook =
-    unsafe extern "C" fn(*const u8, u32, u32, u32, unsafe extern "C" fn(*const u8, u32));
-pub type CommandLength = unsafe extern "C" fn(*const u8, u32) -> u32;
+pub use super::{IngameCommandHook, CommandLength};
 
 static INGAME_HOOKS: RwLock<Vec<(u8, IngameCommandHook)>> = const_rwlock(Vec::new());
 static COMMAND_LENGTHS: OnceCell<&CommandLengths> = OnceCell::new();

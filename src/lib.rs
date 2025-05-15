@@ -1,14 +1,25 @@
+#![cfg_attr(not(feature = "implementer_helpers"), no_std)]
+
+extern crate alloc;
+
+#[cfg(feature = "implementer_helpers")]
 #[macro_use] extern crate log;
 
+#[cfg(feature = "implementer_helpers")]
 pub mod commands;
+#[cfg(feature = "implementer_helpers")]
 pub mod save;
 
-use std::ptr::{null_mut};
+use alloc::string::String;
+use core::ffi::c_void;
+use core::ptr::{null_mut};
 
-use libc::c_void;
-
-use crate::commands::{CommandLength, IngameCommandHook};
-use crate::save::{SaveHook, LoadHook};
+// data, len, game player, unique player, orig
+pub type IngameCommandHook =
+    unsafe extern "C" fn(*const u8, u32, u32, u32, unsafe extern "C" fn(*const u8, u32));
+pub type CommandLength = unsafe extern "C" fn(*const u8, u32) -> u32;
+pub type SaveHook = Option<unsafe extern "C" fn(unsafe extern "C" fn(*const u8, usize))>;
+pub type LoadHook = Option<unsafe extern "C" fn(*const u8, usize) -> u32>;
 
 pub const VERSION: u16 = 44;
 pub const MAX_FUNC_ID: u16 = FuncId::_Last as u16;
@@ -588,11 +599,11 @@ impl FfiStr {
         if self.len == 0 {
             &[]
         } else {
-            std::slice::from_raw_parts(self.bytes, self.len)
+            core::slice::from_raw_parts(self.bytes, self.len)
         }
     }
 
-    pub unsafe fn string_lossy<'a>(&self) -> std::borrow::Cow<'a, str> {
+    pub unsafe fn string_lossy<'a>(&self) -> alloc::borrow::Cow<'a, str> {
         String::from_utf8_lossy(self.to_bytes())
     }
 }
@@ -602,7 +613,7 @@ macro_rules! debug_ui_draw_ptr {
         if $ptr.is_null() {
             None
         } else {
-            let offset = std::mem::offset_of!(DebugUiDraw, $field);
+            let offset = core::mem::offset_of!(DebugUiDraw, $field);
             let size = (*$ptr).struct_size;
             // Technically size >= offset + sizeof(usize) is more accurate but w/e
             if size > offset {
