@@ -819,6 +819,7 @@ impl Drop for Context {
                     MoveScreen => (),
                     SelectUnits => (),
                     StepGameLogic => (),
+                    LobbyScreenOnWebUiMessage => (),
                     _Last => (),
                 }
             }
@@ -2188,6 +2189,7 @@ unsafe extern "C" fn get_func(id: u16) -> Option<unsafe extern "C" fn()> {
         FuncId::MoveScreen => 0,
         FuncId::SelectUnits => 0,
         FuncId::StepGameLogic => 0,
+        FuncId::LobbyScreenOnWebUiMessage => 0,
         FuncId::_Last => 0,
     };
     mem::transmute(value)

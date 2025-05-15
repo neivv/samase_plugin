@@ -468,6 +468,8 @@ pub enum FuncId {
     // a1 = sprite_id, x, y, player
     // Creates an independent sprite (CThingy)
     CreateLoneSprite,
+    // a1 = LobbyScreen *, a2 = JsonValue *
+    LobbyScreenOnWebUiMessage,
 
     _Last,
 }
