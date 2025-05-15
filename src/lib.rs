@@ -557,6 +557,13 @@ pub enum VarId {
     CreepTileBorders,
     SpritesVector,
     ImagesVector,
+    SelectionCircleImages,
+    HpBarImages,
+    FirstFreeSelectionCircle,
+    LastFreeSelectionCircle,
+    FirstFreeHpBar,
+    LastFreeHpBar,
+    HpBarState,
 
     _Last,
 }

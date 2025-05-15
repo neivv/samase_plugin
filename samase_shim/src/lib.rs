@@ -2200,7 +2200,8 @@ fn var_result(var: VarId) -> u8 {
             VarId::FirstGuardAi | VarId::ActiveAiTowns | VarId::Selections |
             VarId::ClientSelection | VarId::Players | VarId::SpriteHlines |
             VarId::SpriteHlinesEnd | VarId::GameData | VarId::ReplayData | VarId::ReplayHeader |
-            VarId::FirstPlayerUnit | VarId::Units | VarId::ResourceAreas | VarId::MainPalette => 2,
+            VarId::FirstPlayerUnit | VarId::Units | VarId::ResourceAreas | VarId::MainPalette |
+            VarId::HpBarState | VarId::HpBarImages | VarId::SelectionCircleImages => 2,
         // Writable variables
         VarId::RngEnable | VarId::FirstActiveUnit | VarId::FirstHiddenUnit |
             VarId::FirstAiScript | VarId::ScMainState | VarId::CommandUser |
@@ -2216,7 +2217,9 @@ fn var_result(var: VarId) -> u8 {
             VarId::FirstFreeLoneSprite | VarId::LastFreeLoneSprite | VarId::LastFowSprite |
             VarId::FirstFreeFowSprite | VarId::LastFreeFowSprite | VarId::CursorMarker |
             VarId::FirstDialog | VarId::TilesetIndexedMapTiles | VarId::TilesetCv5 |
-            VarId::MinitileData | VarId::CreepOriginalTiles | VarId::CreepTileBorders => 3,
+            VarId::MinitileData | VarId::CreepOriginalTiles | VarId::CreepTileBorders |
+            VarId::FirstFreeSelectionCircle | VarId::LastFreeSelectionCircle |
+            VarId::FirstFreeHpBar | VarId::LastFreeHpBar => 3,
         // Unsure / SC:R only
         VarId::Zoom | VarId::TooltipDrawFunc | VarId::GraphicLayers |
             VarId::CmdIconsDdsGrp | VarId::CmdBtnsDdsGrp | VarId::StatusScreenMode |
@@ -2292,6 +2295,13 @@ fn var_addr_size(var: VarId) -> (usize, u32) {
         VarId::CreepTileBorders => (0x006D0E80, 4),
         VarId::FirstDialog => (0x006D5E34, 0),
         VarId::MainPalette => (0x005994E0, 0),
+        VarId::SelectionCircleImages => (0x0057D768, 0),
+        VarId::HpBarImages => (0x0057EB78, 0),
+        VarId::FirstFreeSelectionCircle => (0x0052E4C0, 4),
+        VarId::LastFreeSelectionCircle => (0x0052F564, 4),
+        VarId::FirstFreeHpBar => (0x0057EB6C, 4),
+        VarId::LastFreeHpBar => (0x005254B8, 4),
+        VarId::HpBarState => (0x0051F200, 0),
         // Unsure / SC:R only
         VarId::Zoom | VarId::TooltipDrawFunc | VarId::GraphicLayers |
             VarId::CmdIconsDdsGrp | VarId::CmdBtnsDdsGrp | VarId::StatusScreenMode |
