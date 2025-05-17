@@ -2203,7 +2203,8 @@ fn var_result(var: VarId) -> u8 {
             VarId::ClientSelection | VarId::Players | VarId::SpriteHlines |
             VarId::SpriteHlinesEnd | VarId::GameData | VarId::ReplayData | VarId::ReplayHeader |
             VarId::FirstPlayerUnit | VarId::Units | VarId::ResourceAreas | VarId::MainPalette |
-            VarId::HpBarState | VarId::HpBarImages | VarId::SelectionCircleImages => 2,
+            VarId::HpBarState | VarId::HpBarImages | VarId::SelectionCircleImages |
+            VarId::PlacementImages | VarId::PlacementRects => 2,
         // Writable variables
         VarId::RngEnable | VarId::FirstActiveUnit | VarId::FirstHiddenUnit |
             VarId::FirstAiScript | VarId::ScMainState | VarId::CommandUser |
@@ -2221,7 +2222,9 @@ fn var_result(var: VarId) -> u8 {
             VarId::FirstDialog | VarId::TilesetIndexedMapTiles | VarId::TilesetCv5 |
             VarId::MinitileData | VarId::CreepOriginalTiles | VarId::CreepTileBorders |
             VarId::FirstFreeSelectionCircle | VarId::LastFreeSelectionCircle |
-            VarId::FirstFreeHpBar | VarId::LastFreeHpBar => 3,
+            VarId::FirstFreeHpBar | VarId::LastFreeHpBar | VarId::FirstFreePlacementRect |
+            VarId::LastFreePlacementRect | VarId::FirstFreePlacementImage |
+            VarId::LastFreePlacementImage=> 3,
         // Unsure / SC:R only
         VarId::Zoom | VarId::TooltipDrawFunc | VarId::GraphicLayers |
             VarId::CmdIconsDdsGrp | VarId::CmdBtnsDdsGrp | VarId::StatusScreenMode |
@@ -2304,6 +2307,12 @@ fn var_addr_size(var: VarId) -> (usize, u32) {
         VarId::FirstFreeHpBar => (0x0057EB6C, 4),
         VarId::LastFreeHpBar => (0x005254B8, 4),
         VarId::HpBarState => (0x0051F200, 0),
+        VarId::PlacementImages => (0x005244B8, 0),
+        VarId::PlacementRects => (0x0051DE70, 0),
+        VarId::FirstFreePlacementImage => (0x0051F1F8, 4),
+        VarId::LastFreePlacementImage => (0x0052E4C4, 4),
+        VarId::FirstFreePlacementRect => (0x0051EE70, 4),
+        VarId::LastFreePlacementRect => (0x005240B4, 4),
         // Unsure / SC:R only
         VarId::Zoom | VarId::TooltipDrawFunc | VarId::GraphicLayers |
             VarId::CmdIconsDdsGrp | VarId::CmdBtnsDdsGrp | VarId::StatusScreenMode |

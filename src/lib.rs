@@ -577,6 +577,12 @@ pub enum VarId {
     FirstFreeHpBar,
     LastFreeHpBar,
     HpBarState,
+    PlacementImages,
+    FirstFreePlacementImage,
+    LastFreePlacementImage,
+    PlacementRects,
+    FirstFreePlacementRect,
+    LastFreePlacementRect,
 
     _Last,
 }
