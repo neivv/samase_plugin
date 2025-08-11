@@ -1,7 +1,7 @@
 #[macro_use] extern crate whack;
 
-use std::cell::{Cell, RefCell, RefMut};
-use std::ffi::{CStr, CString};
+use std::cell::{Cell, RefCell};
+use std::ffi::{c_void, CStr, CString};
 use std::io::{self, Write};
 use std::marker::PhantomData;
 use std::mem;
@@ -11,18 +11,17 @@ use std::sync::{Once};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use byteorder::{WriteBytesExt, LE};
-use libc::c_void;
 use thread_local::ThreadLocal;
-use once_cell::sync::Lazy;
 use parking_lot::{Mutex, RwLock, const_mutex, const_rwlock};
-use winapi::um::heapapi::{GetProcessHeap, HeapAlloc, HeapCreate, HeapFree};
-use winapi::um::winnt::{HANDLE, HEAP_CREATE_ENABLE_EXECUTE};
+use windows_sys::Win32::Foundation::{HANDLE};
+use windows_sys::Win32::System::{
+    Memory::{GetProcessHeap, HeapAlloc, HeapCreate, HeapFree, HEAP_CREATE_ENABLE_EXECUTE},
+};
 
 use samase_plugin::commands::{CommandLength, IngameCommandHook};
 use samase_plugin::save::{SaveHook, LoadHook};
 
 mod bw;
-mod windows;
 
 pub use samase_plugin::{PluginApi, FuncId, VarId};
 
@@ -31,9 +30,10 @@ static FIRST_FILE_ACCESS_HOOKS: Mutex<Vec<unsafe extern "C" fn()>> = const_mutex
 static FILE_READ_HOOKS: RwLock<Vec<FileReadHook>> = const_rwlock(Vec::new());
 static OPEN_HOOKED_FILES: Mutex<Vec<HeapFreeOnDropPtr>> = const_mutex(Vec::new());
 
-static CONTEXT: Lazy<ThreadLocal<RefCell<Option<InternalContext>>>> =
-    Lazy::new(|| ThreadLocal::new());
-static LAST_FILE_POINTER: Lazy<ThreadLocal<Cell<u64>>> = Lazy::new(|| ThreadLocal::new());
+thread_local! {
+    static CONTEXT: RefCell<Option<InternalContext>> = const { RefCell::new(None) };
+    static LAST_FILE_POINTER: Cell<u64> = const { Cell::new(0) };
+}
 
 static HAS_HOOKED_FILES_OPEN: AtomicBool = AtomicBool::new(false);
 
@@ -213,7 +213,7 @@ impl io::Seek for BwFile {
             let result = bw::fseek(self.0, low, method);
             if result == 0 {
                 // Ugly hack since I don't think there is ftell linked to bw..
-                Ok(LAST_FILE_POINTER.get().unwrap().get())
+                Ok(LAST_FILE_POINTER.get())
             } else {
                 Err(io::Error::last_os_error())
             }
@@ -233,16 +233,9 @@ impl samase_plugin::save::File for BwFile {
 
 impl Drop for Context {
     fn drop(&mut self) {
-        let ctx = CONTEXT.get().unwrap().borrow_mut().take()
+        let ctx = CONTEXT.take()
             .expect("Missing context for samase shim???");
         if !ctx.unsupported_features.is_empty() {
-            windows::message_box(
-                "Warning",
-                &format!(
-                    "The following features won't work with your version of StarCraft:\n\n{}",
-                    ctx.unsupported_features.join("\n"),
-                ),
-            );
         }
         let mut patcher = PATCHER.lock();
         let mut exe = patcher.patch_exe(0x00400000);
@@ -846,7 +839,7 @@ impl Drop for Context {
                     }
                 }
                 unsafe fn file_pointer_set(val: u32) {
-                    LAST_FILE_POINTER.get_or(|| Cell::new(0)).set(val as u64);
+                    LAST_FILE_POINTER.set(val as u64);
                 }
                 exe.call_hook(bw::SaveReady, save_hook);
                 exe.hook_closure(bw::InitGame, |orig| {
@@ -999,8 +992,8 @@ impl Drop for Context {
     }
 }
 
-fn context() -> RefMut<'static, InternalContext> {
-    RefMut::map(CONTEXT.get().unwrap().borrow_mut(), |x| x.as_mut().unwrap())
+fn context<F: FnOnce(&mut InternalContext)>(func: F) {
+    CONTEXT.with(|x| func(x.borrow_mut().as_mut().unwrap()));
 }
 
 pub unsafe fn on_win_main(f: unsafe fn()) {
@@ -1128,7 +1121,7 @@ static PLUGIN_API: PluginApi = PluginApi {
 
 pub fn init_1161() -> Context {
     unsafe {
-        assert!(CONTEXT.get().is_none());
+        assert!(CONTEXT.take().is_none());
         let mut patcher = PATCHER.lock();
         {
             let mut storm = patcher.patch_library("storm", 0x15000000);
@@ -1147,7 +1140,7 @@ pub fn init_1161() -> Context {
             exe.hook_opt(bw::InitMpqs, init_mpqs_only_once);
         }
 
-        CONTEXT.get_or(|| RefCell::new(Some(Default::default())));
+        CONTEXT.set(Some(Default::default()));
         Context {
             api: &PLUGIN_API
         }
@@ -1160,14 +1153,14 @@ unsafe extern "C" fn free_memory(mem: *mut u8) {
 
 unsafe extern "C" fn write_exe_memory(addr: usize, data: *const u8, len: usize) -> u32 {
     let slice = slice::from_raw_parts(data, len);
-    context().replace_patches.push((addr, slice.into()));
+    context(|c| c.replace_patches.push((addr, slice.into())));
     1
 }
 
 unsafe extern "C" fn warn_unsupported_feature(feature: *const u8) {
-    context().unsupported_features.push(
+    context(|c| c.unsupported_features.push(
         CStr::from_ptr(feature as *const i8).to_string_lossy().into()
-    );
+    ));
 }
 
 struct SFileHandle(*mut c_void);
@@ -1229,13 +1222,13 @@ unsafe extern "C" fn rng_seed() -> Option<unsafe extern "C" fn() -> u32> {
 }
 
 unsafe extern "C" fn hook_step_objects(hook: unsafe extern "C" fn(), after: u32) -> u32 {
-    context().step_objects.push((hook, after));
+    context(|c| c.step_objects.push((hook, after)));
     1
 }
 
 unsafe extern "C" fn hook_aiscript_opcode(opcode: u32, hook: unsafe extern "C" fn(*mut c_void)) -> u32 {
     if opcode < 0x100 {
-        context().aiscript_hooks.push((opcode as u8, hook));
+        context(|c| c.aiscript_hooks.push((opcode as u8, hook)));
         1
     } else {
         0
@@ -1481,7 +1474,7 @@ unsafe extern "C" fn hook_create_bullet(
         unsafe extern "C" fn(u32, i32, i32, u32, u32, *mut c_void) -> *mut c_void,
     ) -> *mut c_void,
 ) -> u32 {
-    context().create_bullet.push(hook);
+    context(|c| c.create_bullet.push(hook));
     1
 }
 
@@ -1491,7 +1484,7 @@ unsafe extern "C" fn hook_create_unit(
         unsafe extern "C" fn(u32, i32, i32, u32, *const u8) -> *mut c_void,
     ) -> *mut c_void,
 ) -> u32 {
-    context().create_unit.push(hook);
+    context(|c| c.create_unit.push(hook));
     1
 }
 
@@ -1542,7 +1535,7 @@ unsafe extern "C" fn give_ai() -> Option<unsafe extern "C" fn(*mut c_void)> {
 }
 
 unsafe extern "C" fn hook_init_units(hook: unsafe extern "C" fn(unsafe extern "C" fn())) -> u32 {
-    context().init_units.push(hook);
+    context(|c| c.init_units.push(hook));
     1
 }
 
@@ -1704,14 +1697,14 @@ unsafe extern "C" fn hook_on_first_file_access(hook: unsafe extern "C" fn()) {
 unsafe extern "C" fn hook_step_order(
     hook: unsafe extern "C" fn(*mut c_void, unsafe extern "C" fn(*mut c_void)),
 ) -> u32 {
-    context().step_order.push(hook);
+    context(|c| c.step_order.push(hook));
     1
 }
 
 unsafe extern "C" fn hook_step_order_hidden(
     hook: unsafe extern "C" fn(*mut c_void, unsafe extern "C" fn(*mut c_void)),
 ) -> u32 {
-    context().step_order_hidden.push(hook);
+    context(|c| c.step_order_hidden.push(hook));
     1
 }
 
@@ -1795,42 +1788,42 @@ unsafe extern "C" fn extended_dat(dat: u32) -> Option<unsafe extern "C" fn(*mut 
 unsafe extern "C" fn hook_process_commands(
     hook: unsafe extern "C" fn(*const c_void, u32, u32, unsafe extern "C" fn(*const c_void, u32, u32)),
 ) -> u32 {
-    context().process_commands.push(hook);
+    context(|c| c.process_commands.push(hook));
     1
 }
 
 unsafe extern "C" fn hook_process_lobby_commands(
     hook: unsafe extern "C" fn(*const c_void, u32, u32, unsafe extern "C" fn(*const c_void, u32, u32)),
 ) -> u32 {
-    context().process_lobby_commands.push(hook);
+    context(|c| c.process_lobby_commands.push(hook));
     1
 }
 
 unsafe extern "C" fn hook_send_command(
     hook: unsafe extern "C" fn(*mut c_void, u32, unsafe extern "C" fn(*mut c_void, u32)),
 ) -> u32 {
-    context().send_command.push(hook);
+    context(|c| c.send_command.push(hook));
     1
 }
 
 unsafe extern "C" fn hook_step_secondary_order(
     hook: unsafe extern "C" fn(*mut c_void, unsafe extern "C" fn(*mut c_void)),
 ) -> u32 {
-    context().step_secondary_order.push(hook);
+    context(|c| c.step_secondary_order.push(hook));
     1
 }
 
 unsafe extern "C" fn hook_game_screen_rclick(
     hook: unsafe extern "C" fn(*mut c_void, unsafe extern "C" fn(*mut c_void)),
 ) -> u32 {
-    context().game_screen_rclick.push(hook);
+    context(|c| c.game_screen_rclick.push(hook));
     1
 }
 
 unsafe extern "C" fn hook_draw_image(
     hook: unsafe extern "C" fn(*mut c_void, unsafe extern "C" fn(*mut c_void)),
 ) -> u32 {
-    context().draw_image.push(hook);
+    context(|c| c.draw_image.push(hook));
     1
 }
 
@@ -1842,7 +1835,7 @@ unsafe extern "C" fn hook_run_dialog(
         unsafe extern "C" fn(*mut c_void, usize, *mut c_void) -> u32,
     ) -> u32,
 ) -> u32 {
-    context().run_dialog.push(hook);
+    context(|c| c.run_dialog.push(hook));
     1
 }
 
@@ -1854,7 +1847,7 @@ unsafe extern "C" fn hook_spawn_dialog(
         unsafe extern "C" fn(*mut c_void, usize, *mut c_void) -> u32,
     ) -> u32,
 ) -> u32 {
-    context().spawn_dialog.push(hook);
+    context(|c| c.spawn_dialog.push(hook));
     1
 }
 
@@ -1882,14 +1875,14 @@ unsafe extern "C" fn hook_game_loop_start(
 unsafe extern "C" fn hook_ai_focus_disabled(
     hook: unsafe extern "C" fn(*mut c_void, unsafe extern "C" fn(*mut c_void)),
 ) -> u32 {
-    context().ai_focus_disabled.push(hook);
+    context(|c| c.ai_focus_disabled.push(hook));
     1
 }
 
 unsafe extern "C" fn hook_ai_focus_air(
     hook: unsafe extern "C" fn(*mut c_void, unsafe extern "C" fn(*mut c_void)),
 ) -> u32 {
-    context().ai_focus_air.push(hook);
+    context(|c| c.ai_focus_air.push(hook));
     1
 }
 
@@ -1912,7 +1905,7 @@ unsafe extern "C" fn hook_func(id: u16, hook: usize) -> u32 {
     }
     if get_func(id).is_some() {
         let func: samase_plugin::FuncId = mem::transmute(id as u8);
-        context().func_hooks.push((func, hook));
+        context(|c| c.func_hooks.push((func, hook)));
         1
     } else {
         0
@@ -2473,7 +2466,7 @@ unsafe extern "C" fn hook_iscript_opcode(
     hook: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void, u32, *mut u32),
 ) -> u32 {
     if opcode < 0x100 {
-        context().iscript_hooks.push((opcode as u8, hook));
+        context(|c| c.iscript_hooks.push((opcode as u8, hook)));
         1
     } else {
         0
@@ -2548,7 +2541,7 @@ unsafe extern "C" fn extend_save(
 ) -> u32 {
     let tag = CStr::from_ptr(tag as *const i8).to_string_lossy();
     samase_plugin::save::add_hook(tag.into(), save, load, init);
-    context().save_extensions_used = true;
+    context(|c| c.save_extensions_used = true);
     1
 }
 

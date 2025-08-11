@@ -6,11 +6,14 @@ edition = "2021"
 
 [dependencies]
 byteorder = "1.2"
-libc = "0.2"
-once_cell = "1.7"
 parking_lot = "0.12"
 thread_local = "1.1"
-winapi = { version = "0.3", features = ["heapapi", "libloaderapi", "winuser"] }
+
+[dependencies.windows-sys]
+version = "0.60"
+features = [
+    "Win32_System_Memory",
+]
 
 [dependencies.samase_plugin]
 path = ".."
@@ -18,4 +21,4 @@ features = ["implementer_helpers"]
 
 [dependencies.whack]
 git = "https://github.com/neivv/whack/"
-rev = "2d1adbae09d75bdaa2af65b0af12760740cd3d2b"
+rev = "57c7bf5ab1161678e6d0437e071fdee655c6f28d"

@@ -1,5 +1,5 @@
 #![allow(bad_style)]
-use libc::c_void;
+use std::ffi::c_void;
 
 whack_funcs!(stdcall, init_funcs, 0x00400000,
     0x004D2D10 =>
