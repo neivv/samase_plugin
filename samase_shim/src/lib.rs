@@ -2131,6 +2131,7 @@ unsafe extern "C" fn get_func(id: u16) -> Option<unsafe extern "C" fn()> {
     }
 
     let func: samase_plugin::FuncId = mem::transmute(id as u8);
+    #[allow(unknown_lints, function_casts_as_integer)]
     let value = match func {
         FuncId::UnitCanRally => UnitCanRally as usize,
         FuncId::UnitCanBeInfested => UnitCanBeInfested as usize,

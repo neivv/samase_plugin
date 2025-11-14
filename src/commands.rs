@@ -222,14 +222,14 @@ pub fn set_default_command_lengths(lengths: &[u32]) {
             out.data[i] = value as usize;
         }
     }
-    out.data[0x6] = save_command_length as usize;
-    out.data[0x7] = save_command_length as usize;
-    out.data[0x9] = select_command_legacy_length as usize;
-    out.data[0xa] = select_command_legacy_length as usize;
-    out.data[0xb] = select_command_legacy_length as usize;
-    out.data[0x63] = select_command_extended_length as usize;
-    out.data[0x64] = select_command_extended_length as usize;
-    out.data[0x65] = select_command_extended_length as usize;
+    out.data[0x6] = save_command_length as *const() as usize;
+    out.data[0x7] = save_command_length as *const() as usize;
+    out.data[0x9] = select_command_legacy_length as *const() as usize;
+    out.data[0xa] = select_command_legacy_length as *const() as usize;
+    out.data[0xb] = select_command_legacy_length as *const() as usize;
+    out.data[0x63] = select_command_extended_length as *const() as usize;
+    out.data[0x64] = select_command_extended_length as *const() as usize;
+    out.data[0x65] = select_command_extended_length as *const() as usize;
     // This isn't set correctly for whatever reason, and it works out for bw since
     // it's not replay skipped
     out.data[0x37] = 7;
