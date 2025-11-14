@@ -95,7 +95,8 @@ whack_funcs!(stdcall, init_funcs, 0x00400000,
         usize, usize, usize, usize, usize, usize, usize, usize, usize) -> usize;
     0x004461B0 => AiUpdateBuildingPlacementState(
         @ebx usize, @esi usize, usize, usize, usize) -> usize;
-    0x00488210  => CreateLoneSprite(usize, usize, @edi usize, usize) -> usize;
+    0x00488210 => CreateLoneSprite(usize, usize, @edi usize, usize) -> usize;
+    0x0048EE30 => ShowInfoMessageWithSound(@ebx usize, @esi usize, @edi usize) -> usize;
     // Not done since the callback is fastcall and wrapping it would be effort
     //0x004E8740 => FindNearestUnitInArea(@esi usize, usize, usize, usize) -> usize;
     //0x004E8740 => FindNearestUnit(@esi usize, usize, usize, usize) -> usize;
@@ -193,7 +194,8 @@ whack_hooks!(stdcall, 0x00400000,
         usize, usize, usize, usize, usize, usize, usize, usize, usize) -> usize;
     0x004461B0 => H_AiUpdateBuildingPlacementState(
         @ebx usize, @esi usize, usize, usize, usize) -> usize;
-    0x00488210  => H_CreateLoneSprite(usize, usize, @edi usize, usize) -> usize;
+    0x00488210 => H_CreateLoneSprite(usize, usize, @edi usize, usize) -> usize;
+    0x0048EE30 => H_ShowInfoMessageWithSound(@ebx usize, @esi usize, @edi usize) -> usize;
 );
 
 whack_vars!(init_vars, 0x00400000,

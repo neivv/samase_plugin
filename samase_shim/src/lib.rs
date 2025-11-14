@@ -802,6 +802,14 @@ impl Drop for Context {
                             },
                         );
                     }
+                    ShowInfoMessageWithSound => {
+                        exe.hook_closure(
+                            bw::H_ShowInfoMessageWithSound,
+                            move |a, b, c, o| {
+                                hook3(a & 0xff, b & 0xffff, c & 0xffff, o)
+                            },
+                        );
+                    }
                     FindNearestUnitAroundUnit | FindNearestUnitInArea | ForEachUnitInArea |
                         FindNearestUnitInAreaPoint => (),
                     // Not bw functions
@@ -2116,6 +2124,11 @@ unsafe extern "C" fn get_func(id: u16) -> Option<unsafe extern "C" fn()> {
     ) -> usize {
         bw::CreateLoneSprite(a, b, c, d)
     }
+    unsafe extern "C" fn ShowInfoMessageWithSound(
+        a: usize, b: usize, c: usize,
+    ) -> usize {
+        bw::ShowInfoMessageWithSound(a, b, c)
+    }
 
     let func: samase_plugin::FuncId = mem::transmute(id as u8);
     let value = match func {
@@ -2175,6 +2188,7 @@ unsafe extern "C" fn get_func(id: u16) -> Option<unsafe extern "C" fn()> {
         FuncId::AiUpdateBuildingPlacementState => AiUpdateBuildingPlacementState as usize,
         FuncId::UpdateBuildingPlacementState => UpdateBuildingPlacementState as usize,
         FuncId::CreateLoneSprite => CreateLoneSprite as usize,
+        FuncId::ShowInfoMessageWithSound => ShowInfoMessageWithSound as usize,
         FuncId::FindNearestUnitInArea | FuncId::FindNearestUnitAroundUnit |
             FuncId::FindNearestUnitInAreaPoint => 0,
         FuncId::AiPickBestPlacementPosition | FuncId::AiPlacementFlags => 0,

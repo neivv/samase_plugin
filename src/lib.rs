@@ -481,6 +481,8 @@ pub enum FuncId {
     CreateLoneSprite,
     // a1 = LobbyScreen *, a2 = JsonValue *
     LobbyScreenOnWebUiMessage,
+    // a1 = player, a2 = sound_id, a3 = string_id
+    ShowInfoMessageWithSound,
 
     _Last,
 }
