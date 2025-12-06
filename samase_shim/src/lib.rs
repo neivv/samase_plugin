@@ -830,6 +830,7 @@ impl Drop for Context {
                     StepGameLogic => (),
                     LobbyScreenOnWebUiMessage => (),
                     _Last => (),
+                    _ => (),
                 }
             }
 
@@ -2138,10 +2139,10 @@ unsafe extern "C" fn get_func(id: u16) -> Option<unsafe extern "C" fn()> {
         bw::ShowInfoMessageWithSound(a, b, c)
     }
     unsafe extern "C" fn CreateStartingUnits() -> usize {
-        bw::CreateStartingUnits
+        bw::CreateStartingUnits()
     }
     unsafe extern "C" fn CreateTeamGameStartingUnits() -> usize {
-        bw::CreateTeamGameStartingUnits
+        bw::CreateTeamGameStartingUnits()
     }
 
     let func: samase_plugin::FuncId = mem::transmute(id as u8);
@@ -2216,6 +2217,7 @@ unsafe extern "C" fn get_func(id: u16) -> Option<unsafe extern "C" fn()> {
         FuncId::StepGameLogic => 0,
         FuncId::LobbyScreenOnWebUiMessage => 0,
         FuncId::_Last => 0,
+        _ => 0,
     };
     mem::transmute(value)
 }

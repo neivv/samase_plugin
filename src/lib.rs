@@ -487,6 +487,8 @@ pub enum FuncId {
     CreateStartingUnits,
     // No arguments
     CreateTeamGameStartingUnits,
+    // a1 = unit, a2 = direction
+    UnitSetDirection,
 
     _Last,
 }

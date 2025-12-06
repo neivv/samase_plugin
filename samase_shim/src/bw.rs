@@ -198,6 +198,8 @@ whack_hooks!(stdcall, 0x00400000,
         @ebx usize, @esi usize, usize, usize, usize) -> usize;
     0x00488210 => H_CreateLoneSprite(usize, usize, @edi usize, usize) -> usize;
     0x0048EE30 => H_ShowInfoMessageWithSound(@ebx usize, @esi usize, @edi usize) -> usize;
+    0x0049DA40 => H_CreateStartingUnits() -> usize;
+    0x0049D8E0 => H_CreateTeamGameStartingUnits() -> usize;
 );
 
 whack_vars!(init_vars, 0x00400000,
