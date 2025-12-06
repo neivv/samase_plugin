@@ -97,6 +97,8 @@ whack_funcs!(stdcall, init_funcs, 0x00400000,
         @ebx usize, @esi usize, usize, usize, usize) -> usize;
     0x00488210 => CreateLoneSprite(usize, usize, @edi usize, usize) -> usize;
     0x0048EE30 => ShowInfoMessageWithSound(@ebx usize, @esi usize, @edi usize) -> usize;
+    0x0049DA40 => CreateStartingUnits() -> usize;
+    0x0049D8E0 => CreateTeamGameStartingUnits() -> usize;
     // Not done since the callback is fastcall and wrapping it would be effort
     //0x004E8740 => FindNearestUnitInArea(@esi usize, usize, usize, usize) -> usize;
     //0x004E8740 => FindNearestUnit(@esi usize, usize, usize, usize) -> usize;

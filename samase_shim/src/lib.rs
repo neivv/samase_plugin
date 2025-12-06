@@ -37,6 +37,7 @@ thread_local! {
 
 static HAS_HOOKED_FILES_OPEN: AtomicBool = AtomicBool::new(false);
 
+type Hook0Arg = unsafe extern "C" fn(unsafe extern "C" fn() -> usize) -> usize;
 type Hook1Arg = unsafe extern "C" fn(usize, unsafe extern "C" fn(usize) -> usize) -> usize;
 type Hook2Arg = unsafe extern "C" fn(usize, usize, unsafe extern "C" fn(usize, usize) -> usize) -> usize;
 type Hook3Arg = unsafe extern "C" fn(usize, usize, usize,
@@ -474,6 +475,7 @@ impl Drop for Context {
             for (func, hook) in ctx.func_hooks {
                 use samase_plugin::FuncId::*;
 
+                let hook0: Hook0Arg = mem::transmute(hook);
                 let hook1: Hook1Arg = mem::transmute(hook);
                 let hook2: Hook2Arg = mem::transmute(hook);
                 let hook3: Hook3Arg = mem::transmute(hook);
@@ -809,6 +811,12 @@ impl Drop for Context {
                                 hook3(a & 0xff, b & 0xffff, c & 0xffff, o)
                             },
                         );
+                    }
+                    CreateStartingUnits => {
+                        exe.hook_closure(bw::H_CreateStartingUnits, move |o| hook0(o));
+                    }
+                    CreateTeamGameStartingUnits => {
+                        exe.hook_closure(bw::H_CreateTeamGameStartingUnits, move |o| hook0(o));
                     }
                     FindNearestUnitAroundUnit | FindNearestUnitInArea | ForEachUnitInArea |
                         FindNearestUnitInAreaPoint => (),
@@ -2129,6 +2137,12 @@ unsafe extern "C" fn get_func(id: u16) -> Option<unsafe extern "C" fn()> {
     ) -> usize {
         bw::ShowInfoMessageWithSound(a, b, c)
     }
+    unsafe extern "C" fn CreateStartingUnits() -> usize {
+        bw::CreateStartingUnits
+    }
+    unsafe extern "C" fn CreateTeamGameStartingUnits() -> usize {
+        bw::CreateTeamGameStartingUnits
+    }
 
     let func: samase_plugin::FuncId = mem::transmute(id as u8);
     #[allow(unknown_lints, function_casts_as_integer)]
@@ -2190,6 +2204,8 @@ unsafe extern "C" fn get_func(id: u16) -> Option<unsafe extern "C" fn()> {
         FuncId::UpdateBuildingPlacementState => UpdateBuildingPlacementState as usize,
         FuncId::CreateLoneSprite => CreateLoneSprite as usize,
         FuncId::ShowInfoMessageWithSound => ShowInfoMessageWithSound as usize,
+        FuncId::CreateStartingUnits => CreateStartingUnits as usize,
+        FuncId::CreateTeamGameStartingUnits => CreateTeamGameStartingUnits as usize,
         FuncId::FindNearestUnitInArea | FuncId::FindNearestUnitAroundUnit |
             FuncId::FindNearestUnitInAreaPoint => 0,
         FuncId::AiPickBestPlacementPosition | FuncId::AiPlacementFlags => 0,

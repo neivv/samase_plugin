@@ -483,6 +483,10 @@ pub enum FuncId {
     LobbyScreenOnWebUiMessage,
     // a1 = player, a2 = sound_id, a3 = string_id
     ShowInfoMessageWithSound,
+    // No arguments
+    CreateStartingUnits,
+    // No arguments
+    CreateTeamGameStartingUnits,
 
     _Last,
 }
