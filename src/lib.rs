@@ -591,6 +591,9 @@ pub enum VarId {
     PlacementRects,
     FirstFreePlacementRect,
     LastFreePlacementRect,
+    // points to { { [AiScript; 100], AiScript *first_free } *container, AiScript *first_active }
+    // (Same as FirstGuardAi or ActiveAiTowns except those have 8 objects)
+    AiScriptListHead,
 
     _Last,
 }
