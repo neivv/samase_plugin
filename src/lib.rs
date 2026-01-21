@@ -489,6 +489,9 @@ pub enum FuncId {
     CreateTeamGameStartingUnits,
     // a1 = unit, a2 = direction
     UnitSetDirection,
+    // a1 player, a2 (u16 unit, u16 count) *buffer, a3 buffer size,
+    // returns full needed size and writes what it can
+    AiGetAttackForce,
 
     _Last,
 }
