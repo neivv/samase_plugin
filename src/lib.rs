@@ -492,6 +492,12 @@ pub enum FuncId {
     // a1 player, a2 (u16 unit, u16 count) *buffer, a3 buffer size,
     // returns full needed size and writes what it can
     AiGetAttackForce,
+    // a1 unit
+    CancelUnit,
+    // a1 unit
+    FinishUnitPre,
+    // a1 unit
+    FinishUnitPost,
 
     _Last,
 }
