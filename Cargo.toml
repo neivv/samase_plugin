@@ -17,4 +17,5 @@ thread_local = { version = "1.1", optional = true }
 
 [features]
 implementer_helpers = ["byteorder", "flate2", "lock_api", "log", "once_cell", "parking_lot",
-    "quick-error", "thread_local"]
+    "quick-error", "thread_local", "save"]
+save = ["byteorder", "flate2", "quick-error"]

@@ -818,6 +818,12 @@ impl Drop for Context {
                     CreateTeamGameStartingUnits => {
                         exe.hook_closure(bw::H_CreateTeamGameStartingUnits, move |o| hook0(o));
                     }
+                    RenderScreen => {
+                        exe.hook_closure(bw::H_RenderScreen, move |o| hook2(0, 0, mem::transmute(o)));
+                    }
+                    ProcessEvents => {
+                        exe.hook_closure(bw::H_ProcessEvents, move |a, o| hook1(a, o));
+                    }
                     FindNearestUnitAroundUnit | FindNearestUnitInArea | ForEachUnitInArea |
                         FindNearestUnitInAreaPoint => (),
                     // Not bw functions
@@ -2144,6 +2150,12 @@ unsafe extern "C" fn get_func(id: u16) -> Option<unsafe extern "C" fn()> {
     unsafe extern "C" fn CreateTeamGameStartingUnits() -> usize {
         bw::CreateTeamGameStartingUnits()
     }
+    unsafe extern "C" fn RenderScreen(_: usize, _: usize) -> usize {
+        bw::RenderScreen()
+    }
+    unsafe extern "C" fn ProcessEvents(a: usize) -> usize {
+        bw::ProcessEvents(a)
+    }
 
     let func: samase_plugin::FuncId = mem::transmute(id as u8);
     #[allow(unknown_lints, function_casts_as_integer)]
@@ -2207,6 +2219,8 @@ unsafe extern "C" fn get_func(id: u16) -> Option<unsafe extern "C" fn()> {
         FuncId::ShowInfoMessageWithSound => ShowInfoMessageWithSound as usize,
         FuncId::CreateStartingUnits => CreateStartingUnits as usize,
         FuncId::CreateTeamGameStartingUnits => CreateTeamGameStartingUnits as usize,
+        FuncId::RenderScreen => RenderScreen as usize,
+        FuncId::ProcessEvents => ProcessEvents as usize,
         FuncId::FindNearestUnitInArea | FuncId::FindNearestUnitAroundUnit |
             FuncId::FindNearestUnitInAreaPoint => 0,
         FuncId::AiPickBestPlacementPosition | FuncId::AiPlacementFlags => 0,

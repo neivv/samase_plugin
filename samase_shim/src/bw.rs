@@ -99,6 +99,8 @@ whack_funcs!(stdcall, init_funcs, 0x00400000,
     0x0048EE30 => ShowInfoMessageWithSound(@ebx usize, @esi usize, @edi usize) -> usize;
     0x0049DA40 => CreateStartingUnits() -> usize;
     0x0049D8E0 => CreateTeamGameStartingUnits() -> usize;
+    0x0041CA00 => RenderScreen() -> usize;
+    0x004D1BF0 => ProcessEvents(usize) -> usize;
     // Not done since the callback is fastcall and wrapping it would be effort
     //0x004E8740 => FindNearestUnitInArea(@esi usize, usize, usize, usize) -> usize;
     //0x004E8740 => FindNearestUnit(@esi usize, usize, usize, usize) -> usize;
@@ -200,6 +202,8 @@ whack_hooks!(stdcall, 0x00400000,
     0x0048EE30 => H_ShowInfoMessageWithSound(@ebx usize, @esi usize, @edi usize) -> usize;
     0x0049DA40 => H_CreateStartingUnits() -> usize;
     0x0049D8E0 => H_CreateTeamGameStartingUnits() -> usize;
+    0x0041CA00 => H_RenderScreen() -> usize;
+    0x004D1BF0 => H_ProcessEvents(usize) -> usize;
 );
 
 whack_vars!(init_vars, 0x00400000,

@@ -1,4 +1,4 @@
-#![cfg_attr(not(feature = "implementer_helpers"), no_std)]
+#![cfg_attr(all(not(feature = "implementer_helpers"), not(feature = "save")), no_std)]
 
 extern crate alloc;
 
@@ -9,6 +9,8 @@ extern crate alloc;
 pub mod commands;
 #[cfg(feature = "implementer_helpers")]
 pub mod save;
+#[cfg(feature = "save")]
+pub mod save_file;
 
 use alloc::string::String;
 use core::ffi::c_void;
@@ -498,6 +500,22 @@ pub enum FuncId {
     FinishUnitPre,
     // a1 unit
     FinishUnitPost,
+    // a1 void *file_handle, a2 char *filename, a3 save_time, a4 char *name_unused,
+    // a5 unk_unused?, a6 game_elapsed_seconds
+    // Writes save to a file handle. Does not show wait dialog or such.
+    // a1 file_handle must be opened by caller, BUT is closed by the function (even on error).
+    // a2 filename is not used to access file, but just
+    // to tell what should be written to the save header.
+    // example a2 = "test.snx", a3 = c stdlib time(), a4 = "test"
+    // Return 1 on success
+    DoSave,
+    // a1 ?? a2 ??
+    // aka img_update_all
+    RenderScreen,
+    // No arguments
+    StepGameLoop,
+    // a1 flags (Usually 3)
+    ProcessEvents,
 
     _Last,
 }
