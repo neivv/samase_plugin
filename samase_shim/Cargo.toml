@@ -21,4 +21,4 @@ features = ["implementer_helpers"]
 
 [dependencies.whack]
 git = "https://github.com/neivv/whack/"
-rev = "57c7bf5ab1161678e6d0437e071fdee655c6f28d"
+rev = "03a8b0db17c40913b845987e0fe6ed0cdd8e71eb"
